@@ -10,6 +10,7 @@ from routers.mining_rover import router as mining_rover_router
 from routers.food_production import router as food_production_router
 from routers.signal_match import router as signal_match_router
 from routers.signal_transmission import router as signal_transmission_router
+from routers.rover_workshop import router as rover_workshop_router
 
 app = FastAPI(title="Lunar Stranding - Mini-Games API")
 
@@ -31,6 +32,7 @@ app.include_router(mining_rover_router)
 app.include_router(food_production_router)
 app.include_router(signal_match_router)
 app.include_router(signal_transmission_router)
+app.include_router(rover_workshop_router)
 
 
 # Health check endpoint
@@ -47,7 +49,8 @@ def root():
             "POST /api/minigames/sample-retrieval",
             "POST /api/minigames/food-production",
             "POST /api/minigames/signal-match",
-            "POST /api/minigames/signal-transmission"
+            "POST /api/minigames/signal-transmission",
+            "POST /api/minigames/rover-workshop"
         ]
     }
 

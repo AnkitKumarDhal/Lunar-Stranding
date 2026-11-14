@@ -181,6 +181,26 @@ export interface SignalTransmissionResponse {
   message: string;
 }
 
+// 9. Rover Workshop (Assembly Line Scheduling)
+export interface RoverWorkshopResponse {
+  is_valid_schedule: boolean;
+  status: string;
+  optimal: {
+    min_time: number;
+    optimal_sequence: number[];
+    dp1: number[];
+    dp2: number[];
+  };
+  optimal_time: number;
+  optimal_sequence: number[];
+  player_time: number;
+  player_sequence: number[];
+  time_difference: number;
+  efficiency: number;
+  efficiency_percentage: number;
+  message: string;
+}
+
 // --- API Service Object ---
 export const gameApi = {
   // 1. Water Rover (Dijkstra)
@@ -306,6 +326,34 @@ export const gameApi = {
       method: "POST",
       body: JSON.stringify({
         text,
+        session_id: "default",
+      }),
+    }),
+
+  // 9. Rover Workshop (Assembly Line Scheduling)
+  submitRoverWorkshop: (
+    a1: number[],
+    a2: number[],
+    t1: number[],
+    t2: number[],
+    entry1: number,
+    entry2: number,
+    exit1: number,
+    exit2: number,
+    playerSequence: number[],
+  ) =>
+    request<RoverWorkshopResponse>("/minigames/rover-workshop", {
+      method: "POST",
+      body: JSON.stringify({
+        a1,
+        a2,
+        t1,
+        t2,
+        entry1,
+        entry2,
+        exit1,
+        exit2,
+        player_sequence: playerSequence,
         session_id: "default",
       }),
     }),

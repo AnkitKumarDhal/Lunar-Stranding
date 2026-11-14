@@ -17,6 +17,7 @@ import { SolarPanelsGame } from "./minigames/SolarPanelsGame";
 import { MiningRoverGame } from "./minigames/MiningRoverGame";
 import { FoodProductionGame } from "./minigames/FoodProductionGame";
 import { RadioGame } from "./minigames/RadioGame";
+import { RoverWorkshopGame } from "./minigames/RoverWorkshopGame";
 
 const FACILITY_META: Record<FacilityType, { title: string; subtitle: string }> =
   {
@@ -179,16 +180,7 @@ export default function App() {
 
           {activeFacility === "greenhouse" && <FoodProductionGame />}
 
-          {activeFacility === "garage" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs space-y-3">
-              <span className="text-amber-400 font-bold tracking-widest text-sm">
-                [ FACILITY OFFLINE // UNDER MAINTENANCE ]
-              </span>
-              <p className="text-slate-400 max-w-md text-center leading-relaxed">
-                Rover Servicing Bay requires Assembly Line Scheduling calibration. This maintenance sector is coming soon in the next mission update.
-              </p>
-            </div>
-          )}
+          {activeFacility === "garage" && <RoverWorkshopGame />}
         </TacticalTabletModal>
       )}
 

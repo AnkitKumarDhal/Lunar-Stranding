@@ -15,12 +15,13 @@ from routers.sample_retrieval import sample_retrieval, SampleRetrievalRequest, S
 from routers.food_production import food_production_scheduling, FoodProductionRequest, TaskModel
 from routers.signal_match import signal_match_search, SignalMatchRequest
 from routers.signal_transmission import signal_transmission_encode, SignalTransmissionRequest
+from routers.rover_workshop import rover_workshop_scheduling, RoverWorkshopRequest, assembly_line_scheduling
 
 
 def test_root_health():
     res = root()
     assert res["status"] == "ok"
-    assert len(res["endpoints"]) == 8
+    assert len(res["endpoints"]) == 9
 
 
 # --- 1. Water Rover (Dijkstra) ---
@@ -457,3 +458,212 @@ def test_signal_transmission_edge_cases():
     req2 = SignalTransmissionRequest(text="")
     res2 = signal_transmission_encode(req2)
     assert res2["status"] == "EMPTY_INPUT"
+
+
+# --- 9. Rover Workshop (Assembly Line Scheduling DP) ---
+def test_rover_workshop_clrs_switching_optimal():
+    # Classic CLRS example where switching lines is optimal:
+    # Line 1: entry 2, a1 [7, 9, 3, 4, 8, 4], exit 3
+    # Line 2: entry 4, a2 [8, 5, 6, 4, 5, 7], exit 2
+    # Transfer: t1 [2, 3, 1, 3, 4], t2 [2, 1, 2, 2, 1]
+    # Optimal: sequence [1, 2, 1, 2, 2, 1] with min_time = 38
+    req = RoverWorkshopRequest(
+        a1=[7, 9, 3, 4, 8, 4],
+        a2=[8, 5, 6, 4, 5, 7],
+        t1=[2, 3, 1, 3, 4],
+        t2=[2, 1, 2, 2, 1],
+        entry1=2,
+        entry2=4,
+        exit1=3,
+        exit2=2,
+        player_sequence=[1, 2, 1, 2, 2, 1]
+    )
+    res = rover_workshop_scheduling(req)
+    assert res["status"] == "OPTIMAL_SCHEDULE"
+    assert res["optimal_time"] == 38.0
+    assert res["player_time"] == 38.0
+    assert res["optimal_sequence"] == [1, 2, 1, 2, 2, 1]
+    assert res["time_difference"] == 0.0
+    assert res["efficiency_percentage"] == 100.0
+
+    # Ensure valid standard JSON serialization without Infinity/NaN
+    serialized = json.dumps(jsonable_encoder(res), allow_nan=False)
+    assert "optimal_time" in serialized
+
+
+def test_rover_workshop_staying_on_same_line_optimal():
+    # Case where staying entirely on Line 1 is optimal
+    # Line 1: entry 1, a1 [1, 1, 1], exit 1 => Total = 1 + 1 + 1 + 1 + 1 = 5
+    # Line 2: entry 10, a2 [10, 10, 10], exit 10
+    # Transfer costs: 5, 5
+    req = RoverWorkshopRequest(
+        a1=[1, 1, 1],
+        a2=[10, 10, 10],
+        t1=[5, 5],
+        t2=[5, 5],
+        entry1=1,
+        entry2=10,
+        exit1=1,
+        exit2=10,
+        player_sequence=[1, 1, 1]
+    )
+    res = rover_workshop_scheduling(req)
+    assert res["status"] == "OPTIMAL_SCHEDULE"
+    assert res["optimal_time"] == 5.0
+    assert res["player_time"] == 5.0
+    assert res["optimal_sequence"] == [1, 1, 1]
+
+
+def test_rover_workshop_suboptimal_player_sequence():
+    # Player picks Line 2 for all stations when Line 1 is optimal
+    req = RoverWorkshopRequest(
+        a1=[1, 1, 1],
+        a2=[10, 10, 10],
+        t1=[5, 5],
+        t2=[5, 5],
+        entry1=1,
+        entry2=10,
+        exit1=1,
+        exit2=10,
+        player_sequence=[2, 2, 2]
+    )
+    res = rover_workshop_scheduling(req)
+    assert res["status"] == "SUBOPTIMAL_SCHEDULE"
+    assert res["optimal_time"] == 5.0
+    assert res["player_time"] == 50.0  # 10 + 10 + 10 + 10 + 10
+    assert res["time_difference"] == 45.0
+    assert res["efficiency_percentage"] == 10.0
+
+
+def test_rover_workshop_invalid_sequence_length():
+    # Sequence length 2 instead of 3 stations
+    req = RoverWorkshopRequest(
+        a1=[1, 2, 3],
+        a2=[2, 3, 4],
+        t1=[1, 1],
+        t2=[1, 1],
+        entry1=1,
+        entry2=1,
+        exit1=1,
+        exit2=1,
+        player_sequence=[1, 2]
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        rover_workshop_scheduling(req)
+    assert exc_info.value.status_code == 400
+    assert "must contain exactly 3 station choices" in exc_info.value.detail
+
+
+def test_rover_workshop_invalid_line_choice():
+    # Invalid choice 3 (only 1 or 2 allowed)
+    req = RoverWorkshopRequest(
+        a1=[1, 2, 3],
+        a2=[2, 3, 4],
+        t1=[1, 1],
+        t2=[1, 1],
+        entry1=1,
+        entry2=1,
+        exit1=1,
+        exit2=1,
+        player_sequence=[1, 3, 2]
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        rover_workshop_scheduling(req)
+    assert exc_info.value.status_code == 400
+    assert "must be either Line 1 or Line 2" in exc_info.value.detail
+
+
+def test_rover_workshop_mismatched_array_lengths():
+    # Mismatched a1 and a2 lengths
+    req = RoverWorkshopRequest(
+        a1=[1, 2, 3],
+        a2=[1, 2],
+        t1=[1, 1],
+        t2=[1, 1],
+        entry1=1,
+        entry2=1,
+        exit1=1,
+        exit2=1,
+        player_sequence=[1, 1, 1]
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        rover_workshop_scheduling(req)
+    assert exc_info.value.status_code == 400
+    assert "equal length" in exc_info.value.detail
+
+    # Mismatched transfer array length (needs n - 1 = 2)
+    req2 = RoverWorkshopRequest(
+        a1=[1, 2, 3],
+        a2=[1, 2, 3],
+        t1=[1],
+        t2=[1, 1],
+        entry1=1,
+        entry2=1,
+        exit1=1,
+        exit2=1,
+        player_sequence=[1, 1, 1]
+    )
+    with pytest.raises(HTTPException) as exc_info2:
+        rover_workshop_scheduling(req2)
+    assert exc_info2.value.status_code == 400
+    assert "contain exactly n - 1" in exc_info2.value.detail
+
+
+def test_rover_workshop_negative_times():
+    # Negative entry time
+    req = RoverWorkshopRequest(
+        a1=[1, 2],
+        a2=[1, 2],
+        t1=[1],
+        t2=[1],
+        entry1=-5,
+        entry2=1,
+        exit1=1,
+        exit2=1,
+        player_sequence=[1, 1]
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        rover_workshop_scheduling(req)
+    assert exc_info.value.status_code == 400
+    assert "non-negative" in exc_info.value.detail
+
+    # Negative processing time
+    req2 = RoverWorkshopRequest(
+        a1=[1, -2],
+        a2=[1, 2],
+        t1=[1],
+        t2=[1],
+        entry1=1,
+        entry2=1,
+        exit1=1,
+        exit2=1,
+        player_sequence=[1, 1]
+    )
+    with pytest.raises(HTTPException) as exc_info2:
+        rover_workshop_scheduling(req2)
+    assert exc_info2.value.status_code == 400
+    assert "Processing times must be non-negative" in exc_info2.value.detail
+
+
+def test_rover_workshop_single_station():
+    # Single station n = 1: transfer arrays are empty []
+    # Line 1: entry 2 + a1[0] 5 + exit 3 = 10
+    # Line 2: entry 1 + a2[0] 7 + exit 2 = 10
+    # Line 1: optimal time 10
+    req = RoverWorkshopRequest(
+        a1=[5],
+        a2=[7],
+        t1=[],
+        t2=[],
+        entry1=2,
+        entry2=1,
+        exit1=3,
+        exit2=2,
+        player_sequence=[1]
+    )
+    res = rover_workshop_scheduling(req)
+    assert res["status"] == "OPTIMAL_SCHEDULE"
+    assert res["optimal_time"] == 10.0
+    assert res["player_time"] == 10.0
+    assert res["optimal_sequence"] == [1]
+
