@@ -22,10 +22,10 @@ export interface WaterRoverResponse {
   status: string;
   optimal: {
     path: string[];
-    cost: number;
+    cost: number | null;
   };
   optimal_path: string[];
-  optimal_cost: number;
+  optimal_cost: number | null;
   player_path: string[];
   player_cost: number;
   excess_energy_spent: number;
@@ -84,12 +84,12 @@ export interface MiningRoverResponse {
   has_negative_cycle: boolean;
   optimal: {
     path: string[];
-    cost: number | string;
-    distances: Record<string, number | string>;
+    cost: number | null;
+    distances: Record<string, number | null>;
     has_negative_cycle: boolean;
   };
   optimal_path: string[];
-  optimal_cost: number;
+  optimal_cost: number | null;
   player_path: string[];
   player_cost: number;
   efficiency: number;

@@ -1,4 +1,4 @@
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple
 from .compat import APIRouter, HTTPException, BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["signal-match"])
@@ -8,6 +8,36 @@ class SignalMatchRequest(BaseModel):
     signal: Union[str, List[int]]
     pattern: Union[str, List[int]]
     session_id: Optional[str] = "default"
+
+
+# Validate binary string or integer list input strictly without silently modifying
+def parse_and_validate_binary(raw_val: Union[str, List[int]], field_name: str) -> Tuple[List[int], str]:
+    if isinstance(raw_val, str):
+        cleaned = raw_val.strip()
+        for ch in cleaned:
+            if ch not in ("0", "1"):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid character '{ch}' in {field_name}. Only binary digits '0' and '1' are allowed."
+                )
+        int_list = [int(ch) for ch in cleaned]
+        return int_list, cleaned
+    elif isinstance(raw_val, list):
+        for item in raw_val:
+            # Check for bool (isinstance(True, int) is True in Python) or numbers != 0 and 1
+            if isinstance(item, bool) or not isinstance(item, int) or item not in (0, 1):
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Invalid value '{item}' in {field_name}. Only 0 and 1 integer values are allowed."
+                )
+        int_list = [int(x) for x in raw_val]
+        str_val = "".join(str(x) for x in int_list)
+        return int_list, str_val
+    else:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{field_name} must be a binary string or array of 0 and 1 integers."
+        )
 
 
 # Rabin-Karp substring search algorithm using rolling hash
@@ -42,22 +72,9 @@ def rabin_karp_search(signal_list: List[int], pattern_list: List[int], d: int = 
 
 @router.post("/signal-match")
 def signal_match_search(req: SignalMatchRequest):
-    # Convert input signal and pattern to integer lists
-    if isinstance(req.signal, str):
-        signal_clean = req.signal.strip()
-        signal_list = [int(c) for c in signal_clean if c in "01"]
-        signal_str = signal_clean
-    else:
-        signal_list = [int(x) for x in req.signal]
-        signal_str = "".join(str(x) for x in signal_list)
-
-    if isinstance(req.pattern, str):
-        pattern_clean = req.pattern.strip()
-        pattern_list = [int(c) for c in pattern_clean if c in "01"]
-        pattern_str = pattern_clean
-    else:
-        pattern_list = [int(x) for x in req.pattern]
-        pattern_str = "".join(str(x) for x in pattern_list)
+    # Validate inputs strictly without silently stripping invalid characters
+    signal_list, signal_str = parse_and_validate_binary(req.signal, "signal")
+    pattern_list, pattern_str = parse_and_validate_binary(req.pattern, "pattern")
 
     # Edge cases
     if not pattern_list:

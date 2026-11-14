@@ -1,7 +1,11 @@
 import sys
 import os
+import json
+import pytest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
+from fastapi.encoders import jsonable_encoder
+from fastapi import HTTPException
 from main import root
 from routers.water_rover import water_rover_navigation, WaterRoverRequest
 from routers.crater_traverse import crater_traversal, CraterTraverseRequest
@@ -19,7 +23,7 @@ def test_root_health():
     assert len(res["endpoints"]) == 8
 
 
-# 1. Water Rover (Dijkstra)
+# --- 1. Water Rover (Dijkstra) ---
 def test_water_rover_optimal():
     graph = {
         "Base": {"NodeA": 15, "NodeB": 25},
@@ -56,7 +60,51 @@ def test_water_rover_invalid_route():
     assert res["is_valid_path"] is False
 
 
-# 2. Crater Traverse (BFS)
+def test_water_rover_unreachable_destination_null_cost():
+    # Case 1: Unreachable destination returns null optimal cost (valid standard JSON)
+    graph = {
+        "Base": {"NodeA": 10},
+        "NodeA": {"Base": 10},
+        "IceDeposit": {}
+    }
+    req = WaterRoverRequest(
+        graph=graph,
+        start_node="Base",
+        target_node="IceDeposit",
+        player_path=["Base", "NodeA"]
+    )
+    res = water_rover_navigation(req)
+    assert res["status"] == "UNREACHABLE"
+    assert res["optimal_cost"] is None
+    assert res["optimal"]["cost"] is None
+
+    # Strict JSON serialization test (disallows non-standard Infinity/NaN)
+    serialized = json.dumps(jsonable_encoder(res), allow_nan=False)
+    parsed = json.loads(serialized)
+    assert parsed["optimal_cost"] is None
+    assert parsed["optimal"]["cost"] is None
+
+
+def test_water_rover_rejects_negative_edge_weights():
+    # Case 2: Reject negative edge weights with HTTP 400
+    graph = {
+        "Base": {"NodeA": -5},
+        "NodeA": {"IceDeposit": 10},
+        "IceDeposit": {}
+    }
+    req = WaterRoverRequest(
+        graph=graph,
+        start_node="Base",
+        target_node="IceDeposit",
+        player_path=["Base", "NodeA", "IceDeposit"]
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        water_rover_navigation(req)
+    assert exc_info.value.status_code == 400
+    assert "Negative edge weight" in exc_info.value.detail
+
+
+# --- 2. Crater Traverse (BFS) ---
 def test_crater_traverse_optimal():
     graph = {
         "Crater_Alpha": ["Rim_1", "Rim_2"],
@@ -93,7 +141,7 @@ def test_crater_traverse_incomplete():
     assert res["all_craters_covered"] is False
 
 
-# 3. Solar Panels (Prim's MST)
+# --- 3. Solar Panels (Prim's MST) ---
 def test_solar_panels_optimal():
     graph = {
         "A": {"B": 1.0, "C": 4.0},
@@ -129,7 +177,7 @@ def test_solar_panels_invalid_edges():
     assert res["status"] == "INVALID_SPANNING_TREE"
 
 
-# 4. Mining Rover (Bellman-Ford)
+# --- 4. Mining Rover (Bellman-Ford) ---
 def test_mining_rover_optimal():
     edges = [
         ["Base", "A", 6],
@@ -153,11 +201,12 @@ def test_mining_rover_optimal():
     assert res["has_negative_cycle"] is False
 
 
-def test_mining_rover_negative_cycle():
+def test_mining_rover_negative_cycle_valid_json_without_infinity():
+    # Case 4: Negative cycle response returns null cost without non-standard Infinity values
     edges = [
         ["Base", "A", 2],
-        ["A", "B", -3],
-        ["B", "A", -2],
+        ["A", "B", -4],
+        ["B", "A", -3],
         ["B", "Excavation", 1]
     ]
     req = MiningRoverRequest(
@@ -169,9 +218,39 @@ def test_mining_rover_negative_cycle():
     res = mining_rover_navigation(req)
     assert res["status"] == "NEGATIVE_CYCLE_DETECTED"
     assert res["has_negative_cycle"] is True
+    assert res["optimal_cost"] is None
+    assert res["optimal"]["cost"] is None
+
+    # Strict standard JSON serialization test
+    serialized = json.dumps(jsonable_encoder(res), allow_nan=False)
+    parsed = json.loads(serialized)
+    assert parsed["optimal_cost"] is None
+    assert parsed["optimal"]["cost"] is None
 
 
-# 5. Sample Retrieval (0/1 Knapsack)
+def test_mining_rover_unreachable_destination_null_cost():
+    # Case 3: Unreachable destination returns null costs
+    edges = [["Base", "A", 5], ["B", "Excavation", 3]]
+    req = MiningRoverRequest(
+        edges=edges,
+        start_node="Base",
+        target_node="Excavation",
+        player_path=["Base", "A"]
+    )
+    res = mining_rover_navigation(req)
+    assert res["status"] == "UNREACHABLE"
+    assert res["optimal_cost"] is None
+    assert res["optimal"]["cost"] is None
+    assert res["optimal"]["distances"]["Excavation"] is None
+
+    # Strict standard JSON serialization test
+    serialized = json.dumps(jsonable_encoder(res), allow_nan=False)
+    parsed = json.loads(serialized)
+    assert parsed["optimal_cost"] is None
+    assert parsed["optimal"]["cost"] is None
+
+
+# --- 5. Sample Retrieval (0/1 Knapsack) ---
 def test_sample_retrieval_optimal():
     samples = [
         SampleItem(id="s1", name="Ilmenite", weight=5, value=10),
@@ -203,7 +282,7 @@ def test_sample_retrieval_overweight():
     assert res["status"] == "PAYLOAD_OVERWEIGHT"
 
 
-# 6. Food Production (Weighted Activity Selection)
+# --- 6. Food Production (Weighted Activity Selection) ---
 def test_food_production_optimal():
     tasks = [
         TaskModel(name="UV Sterilization", start_hour=0, end_hour=4, power_kw=3.0, hp_gain=10),
@@ -254,7 +333,62 @@ def test_food_production_scheduling_conflict():
     assert res["is_valid_schedule"] is False
 
 
-# 7. Signal Match (Rabin-Karp)
+def test_food_production_rejects_invalid_intervals():
+    # Case 5: Reject invalid intervals (start >= end) immediately with HTTP 400 without hanging
+    tasks = [
+        TaskModel(name="InvalidInterval", start_hour=6, end_hour=4, power_kw=3.0, hp_gain=10)
+    ]
+    req = FoodProductionRequest(available_tasks=tasks, selected_tasks=["InvalidInterval"])
+    with pytest.raises(HTTPException) as exc_info:
+        food_production_scheduling(req)
+    assert exc_info.value.status_code == 400
+    assert "invalid time interval" in exc_info.value.detail
+
+    # Zero duration interval
+    tasks_zero = [
+        TaskModel(name="ZeroDuration", start_hour=5, end_hour=5, power_kw=3.0, hp_gain=10)
+    ]
+    req_zero = FoodProductionRequest(available_tasks=tasks_zero, selected_tasks=["ZeroDuration"])
+    with pytest.raises(HTTPException) as exc_info_zero:
+        food_production_scheduling(req_zero)
+    assert exc_info_zero.value.status_code == 400
+
+
+def test_food_production_rejects_duplicate_task_names():
+    # Case 6: Reject duplicate task names with HTTP 400
+    tasks = [
+        TaskModel(name="UV Light", start_hour=0, end_hour=4, power_kw=3.0, hp_gain=10),
+        TaskModel(name="UV Light", start_hour=5, end_hour=8, power_kw=2.0, hp_gain=12)
+    ]
+    req = FoodProductionRequest(available_tasks=tasks, selected_tasks=["UV Light"])
+    with pytest.raises(HTTPException) as exc_info:
+        food_production_scheduling(req)
+    assert exc_info.value.status_code == 400
+    assert "Duplicate task name" in exc_info.value.detail
+
+
+def test_food_production_optimal_plan_excludes_tasks_exceeding_bus_limit():
+    # Case 7: Exclude tasks exceeding bus_limit_kw from optimal plan
+    # Task A: 0-5, 8 kW, 50 HP (exceeds 5 kW bus limit)
+    # Task B: 5-8, 4 kW, 20 HP (within 5 kW bus limit)
+    # Expected: Task B only, with 20 HP
+    tasks = [
+        TaskModel(name="A", start_hour=0, end_hour=5, power_kw=8.0, hp_gain=50),
+        TaskModel(name="B", start_hour=5, end_hour=8, power_kw=4.0, hp_gain=20),
+    ]
+    req = FoodProductionRequest(
+        available_tasks=tasks,
+        selected_tasks=["B"],
+        bus_limit_kw=5.0
+    )
+    res = food_production_scheduling(req)
+    assert res["optimal_hp_gain"] == 20
+    assert res["optimal_tasks"] == ["B"]
+    assert res["status"] == "OPTIMAL"
+    assert res["player_hp_gain"] == 20
+
+
+# --- 7. Signal Match (Rabin-Karp) ---
 def test_signal_match_found():
     req = SignalMatchRequest(
         signal="11010010110",
@@ -274,7 +408,37 @@ def test_signal_match_edge_cases():
     assert signal_match_search(req2)["status"] == "PATTERN_TOO_LONG"
 
 
-# 8. Signal Transmission (Huffman Coding)
+def test_rabin_karp_rejects_invalid_binary_string():
+    # Case 8: Reject strings containing invalid characters with HTTP 400
+    req = SignalMatchRequest(signal="101021", pattern="01")
+    with pytest.raises(HTTPException) as exc_info:
+        signal_match_search(req)
+    assert exc_info.value.status_code == 400
+    assert "Only binary digits '0' and '1' are allowed" in exc_info.value.detail
+
+    req2 = SignalMatchRequest(signal="10101", pattern="01abc")
+    with pytest.raises(HTTPException) as exc_info2:
+        signal_match_search(req2)
+    assert exc_info2.value.status_code == 400
+    assert "Only binary digits '0' and '1' are allowed" in exc_info2.value.detail
+
+
+def test_rabin_karp_rejects_invalid_integer_array():
+    # Case 9: Reject integer arrays with values other than 0 and 1 with HTTP 400
+    req = SignalMatchRequest(signal=[1, 0, 2, 1], pattern=[0, 1])
+    with pytest.raises(HTTPException) as exc_info:
+        signal_match_search(req)
+    assert exc_info.value.status_code == 400
+    assert "Only 0 and 1 integer values are allowed" in exc_info.value.detail
+
+    req2 = SignalMatchRequest(signal=[1, 0, 1], pattern=[0, -1])
+    with pytest.raises(HTTPException) as exc_info2:
+        signal_match_search(req2)
+    assert exc_info2.value.status_code == 400
+    assert "Only 0 and 1 integer values are allowed" in exc_info2.value.detail
+
+
+# --- 8. Signal Transmission (Huffman Coding) ---
 def test_signal_transmission_roundtrip():
     req = SignalTransmissionRequest(text="lunar base communication")
     res = signal_transmission_encode(req)

@@ -372,11 +372,17 @@ export const MiningRoverGame = () => {
                 </div>
                 <div>
                   <span className="text-slate-500 block">Optimal Energy Cost:</span>
-                  <span className="text-emerald-400 font-bold">{navResult.optimal_cost} kWh</span>
+                  <span className="text-emerald-400 font-bold">
+                    {navResult.optimal_cost !== null ? `${navResult.optimal_cost} kWh` : "N/A"}
+                  </span>
                 </div>
                 <div>
                   <span className="text-slate-500 block">Optimal Path:</span>
-                  <span className="text-slate-300 font-bold">{navResult.optimal_path.join(" → ")}</span>
+                  <span className="text-slate-300 font-bold">
+                    {navResult.optimal_path && navResult.optimal_path.length > 0
+                      ? navResult.optimal_path.join(" → ")
+                      : "N/A"}
+                  </span>
                 </div>
               </div>
             </div>

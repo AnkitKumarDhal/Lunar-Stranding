@@ -33,7 +33,11 @@ class GreenhouseTask:
 
 
 # Weighted Activity Selection via Dynamic Programming
-def solve_best_schedule(tasks: List[GreenhouseTask]):
+def solve_best_schedule(tasks: List[GreenhouseTask], bus_limit_kw: Optional[float] = None):
+    # Exclude infeasible tasks whose individual power draw exceeds the power bus limit
+    if bus_limit_kw is not None:
+        tasks = [t for t in tasks if t.power_kw <= bus_limit_kw]
+
     if not tasks:
         return 0, []
 
@@ -125,9 +129,9 @@ def simulate_day(
                     "survived_day": penalized_hp > 0,
                 }
 
-    # 4. Valid schedule: calculate net HP
+    # 4. Valid schedule: calculate net HP using power bus limit for optimal comparison
     gained_hp = sum(t.hp_gain for t in chosen)
-    max_possible_hp, best_tasks = solve_best_schedule(all_tasks)
+    max_possible_hp, best_tasks = solve_best_schedule(all_tasks, bus_limit_kw=bus_limit_kw)
 
     # Calculate end of day HP capped between 0 and 100
     new_hp = min(100, max(0, current_hp - daily_hp_drain + gained_hp))
@@ -153,8 +157,38 @@ def simulate_day(
 
 @router.post("/food-production")
 def food_production_scheduling(req: FoodProductionRequest):
+    # Validate bus limit
+    if req.bus_limit_kw < 0:
+        raise HTTPException(status_code=400, detail="Power bus limit cannot be negative.")
+
     if not req.available_tasks:
-        raise HTTPException(status_code=400, detail="Available tasks list cannot be empty")
+        raise HTTPException(status_code=400, detail="Available tasks list cannot be empty.")
+
+    # Validate task intervals, power, hp_gain, and uniqueness
+    seen_names = set()
+    for t in req.available_tasks:
+        # Enforce 0 <= start_hour < end_hour <= 24 to prevent invalid timeframes and infinite loops in DP backtracking
+        if not (0 <= t.start_hour < t.end_hour <= 24):
+            raise HTTPException(
+                status_code=400,
+                detail=f"Task '{t.name}' has invalid time interval ({t.start_hour} to {t.end_hour}). Must satisfy 0 <= start < end <= 24."
+            )
+        if t.power_kw < 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Task '{t.name}' power draw ({t.power_kw} kW) cannot be negative."
+            )
+        if t.hp_gain < 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Task '{t.name}' HP gain ({t.hp_gain}) cannot be negative."
+            )
+        if t.name in seen_names:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Duplicate task name '{t.name}' found in available tasks."
+            )
+        seen_names.add(t.name)
 
     # Support either selected_tasks or selected_task_names
     chosen_names = req.selected_task_names if req.selected_task_names is not None else (req.selected_tasks or [])
@@ -165,7 +199,7 @@ def food_production_scheduling(req: FoodProductionRequest):
         for t in req.available_tasks
     ]
 
-    opt_hp, best_tasks = solve_best_schedule(task_objs)
+    opt_hp, best_tasks = solve_best_schedule(task_objs, bus_limit_kw=req.bus_limit_kw)
     opt_names = [t.name for t in best_tasks]
 
     optimal_info = {

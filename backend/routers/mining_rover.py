@@ -117,10 +117,19 @@ def mining_rover_navigation(req: MiningRoverRequest):
         else:
             opt_path = []
 
-    clean_distances = {k: (round(v, 2) if v != float("inf") else "inf") for k, v in distances.items()}
+    # Python None is used for non-finite costs/distances because standard JSON does not support Infinity or -Infinity; serializes to JSON null
+    clean_distances = {
+        k: (round(v, 2) if v != float("inf") and v != float("-inf") else None)
+        for k, v in distances.items()
+    }
+    opt_cost_serializable = (
+        round(opt_cost, 2)
+        if (opt_cost != float("inf") and opt_cost != float("-inf") and not has_neg_cycle)
+        else None
+    )
     optimal_info = {
         "path": opt_path,
-        "cost": round(opt_cost, 2) if opt_cost != float("inf") else "inf",
+        "cost": opt_cost_serializable,
         "distances": clean_distances,
         "has_negative_cycle": has_neg_cycle
     }
@@ -133,7 +142,7 @@ def mining_rover_navigation(req: MiningRoverRequest):
             "has_negative_cycle": True,
             "optimal": optimal_info,
             "optimal_path": [],
-            "optimal_cost": float("-inf"),
+            "optimal_cost": None,  # Standard JSON null for negative cycle infinite loop
             "player_path": path,
             "player_cost": 0.0,
             "efficiency": 0.0,
@@ -149,7 +158,7 @@ def mining_rover_navigation(req: MiningRoverRequest):
             "has_negative_cycle": False,
             "optimal": optimal_info,
             "optimal_path": [],
-            "optimal_cost": float("inf"),
+            "optimal_cost": None,  # Standard JSON null for unreachable destination
             "player_path": path,
             "player_cost": 0.0,
             "efficiency": 0.0,

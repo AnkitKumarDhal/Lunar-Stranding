@@ -16,6 +16,10 @@ export const RadioGame = () => {
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
 
+  // Validation flags for binary inputs (only 0 and 1 allowed)
+  const isSignalInvalid = Boolean(signalInput && /[^01]/.test(signalInput));
+  const isPatternInvalid = Boolean(patternInput && /[^01]/.test(patternInput));
+
   // Huffman Signal Transmission State
   const [textInput, setTextInput] = useState("LUNAR BASE EMERGENCY COMMS ESTABLISHED");
   const [transResult, setTransResult] = useState<SignalTransmissionResponse | null>(null);
@@ -91,10 +95,15 @@ export const RadioGame = () => {
               <input
                 type="text"
                 value={signalInput}
-                onChange={(e) => setSignalInput(e.target.value.replace(/[^01]/g, ""))}
+                onChange={(e) => setSignalInput(e.target.value)}
                 placeholder="e.g. 11010010110"
-                className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500 tracking-widest"
+                className={`w-full bg-slate-950 border ${isSignalInvalid ? "border-rose-500" : "border-slate-700"} rounded px-3 py-2 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500 tracking-widest`}
               />
+              {isSignalInvalid && (
+                <span className="text-[10px] text-rose-400 font-mono mt-1 block">
+                  Only 0 and 1 are allowed.
+                </span>
+              )}
             </div>
 
             <div>
@@ -104,10 +113,15 @@ export const RadioGame = () => {
               <input
                 type="text"
                 value={patternInput}
-                onChange={(e) => setPatternInput(e.target.value.replace(/[^01]/g, ""))}
+                onChange={(e) => setPatternInput(e.target.value)}
                 placeholder="e.g. 010110"
-                className="w-full bg-slate-950 border border-slate-700 rounded px-3 py-2 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-500 tracking-widest"
+                className={`w-full bg-slate-950 border ${isPatternInvalid ? "border-rose-500" : "border-slate-700"} rounded px-3 py-2 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-500 tracking-widest`}
               />
+              {isPatternInvalid && (
+                <span className="text-[10px] text-rose-400 font-mono mt-1 block">
+                  Only 0 and 1 are allowed.
+                </span>
+              )}
             </div>
 
             {/* Signal Stream Visualization */}
@@ -150,7 +164,7 @@ export const RadioGame = () => {
             </span>
             <button
               onClick={handleMatchSubmit}
-              disabled={matchLoading || !signalInput || !patternInput}
+              disabled={matchLoading || !signalInput || !patternInput || isSignalInvalid || isPatternInvalid}
               className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
               {matchLoading ? "SCANNING ROLLING HASH..." : "SCAN CARRIER SIGNAL"}

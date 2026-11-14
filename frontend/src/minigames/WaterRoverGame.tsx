@@ -267,7 +267,9 @@ export const WaterRoverGame = () => {
             </div>
             <div>
               <span className="text-slate-500 block">Optimal Energy:</span>
-              <span className="text-emerald-400 font-bold">{result.optimal_cost} kWh</span>
+              <span className="text-emerald-400 font-bold">
+                {result.optimal_cost !== null ? `${result.optimal_cost} kWh` : "N/A"}
+              </span>
             </div>
             <div>
               <span className="text-slate-500 block">Remaining Battery:</span>
@@ -275,7 +277,9 @@ export const WaterRoverGame = () => {
             </div>
             <div>
               <span className="text-slate-500 block">Optimal Path:</span>
-              <span className="text-slate-300 font-bold">{result.optimal_path.join(" → ")}</span>
+              <span className="text-slate-300 font-bold">
+                {result.optimal_path && result.optimal_path.length > 0 ? result.optimal_path.join(" → ") : "N/A"}
+              </span>
             </div>
           </div>
         </div>

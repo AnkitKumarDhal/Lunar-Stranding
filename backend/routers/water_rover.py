@@ -104,12 +104,24 @@ def water_rover_navigation(req: WaterRoverRequest):
     if target not in graph:
         raise HTTPException(status_code=400, detail=f"Target node {target} not found in graph")
 
+    # Dijkstra's algorithm requires all edge weights to be non-negative
+    for u, neighbors in graph.items():
+        for v, weight in neighbors.items():
+            if weight < 0:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Negative edge weight detected ({u} -> {v}: {weight}). Dijkstra's algorithm requires non-negative edge weights."
+                )
+
     # run dijkstra
     opt_cost, opt_path = dijkstra(graph, start, target)
 
+    # Python None is used instead of float('inf') because standard JSON does not support Infinity; serializes to JSON null
+    opt_cost_serializable = round(opt_cost, 2) if opt_cost != float("inf") else None
+
     optimal_info = {
         "path": opt_path,
-        "cost": round(opt_cost, 2) if opt_cost != float("inf") else float("inf")
+        "cost": opt_cost_serializable
     }
 
     if opt_cost == float("inf"):
@@ -118,7 +130,7 @@ def water_rover_navigation(req: WaterRoverRequest):
             "status": "UNREACHABLE",
             "optimal": optimal_info,
             "optimal_path": [],
-            "optimal_cost": float("inf"),
+            "optimal_cost": None,  # Standard JSON null for unreachable target
             "player_path": path,
             "player_cost": 0.0,
             "excess_energy_spent": 0.0,
