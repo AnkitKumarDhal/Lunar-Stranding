@@ -136,25 +136,22 @@ export interface GreenhouseTaskItem {
   hp_gain: number;
 }
 
+export interface FoodProductionGameData {
+  available_tasks: GreenhouseTaskItem[];
+}
+
 export interface FoodProductionResponse {
   status: string;
-  is_valid_schedule: boolean;
   optimal: {
     max_hp_gain: number;
     tasks: string[];
   };
-  optimal_hp_gain: number;
-  optimal_tasks: string[];
   player_hp_gain: number;
-  player_tasks: string[];
-  current_hp: number;
-  daily_drain: number;
   final_hp: number;
   survived_day: boolean;
   peak_power_kw: number;
   bus_limit_kw: number;
-  efficiency: number;
-  efficiency_percentage: number;
+  power_consumed: number;
   message: string;
 }
 
@@ -292,12 +289,17 @@ export const gameApi = {
     }),
 
   // 6. Food Production (Weighted Activity Selection)
+  newFoodProductionGame: () =>
+    request<FoodProductionGameData>("/minigames/food-production", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
   submitFoodProduction: (
     tasks: GreenhouseTaskItem[],
     selectedNames: string[],
-    currentHp: number = 100,
-    dailyDrain: number = 30,
-    busLimitKw: number = 5.0,
+    currentHp: number,
+    dailyDrain: number,
+    busLimitKw: number,
   ) =>
     request<FoodProductionResponse>("/minigames/food-production", {
       method: "POST",
@@ -307,7 +309,6 @@ export const gameApi = {
         current_hp: currentHp,
         daily_hp_drain: dailyDrain,
         bus_limit_kw: busLimitKw,
-        session_id: "default",
       }),
     }),
 

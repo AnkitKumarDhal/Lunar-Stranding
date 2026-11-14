@@ -72,9 +72,10 @@ export function DailyRoutinePanel({
 
 interface HudProps {
   power: number;
+  health: number;
 }
 
-export default function Hud({ power }: HudProps) {
+export default function Hud({ power, health }: HudProps) {
   const panelBase =
     "bg-slate-950/70 backdrop-blur-md border border-cyan-800/60 shadow-[0_0_15px_rgba(0,0,0,0.8)] pointer-events-auto font-mono";
 
@@ -113,10 +114,10 @@ export default function Hud({ power }: HudProps) {
               <div className="flex items-center gap-1 text-[10px] font-bold">
                 <Activity size={12} /> <span>HEALTH</span>
               </div>
-              <span className="text-[10px]">88%</span>
+              <span className="text-[10px]">{health}%</span>
             </div>
             <div className="w-full bg-slate-900 h-1.5">
-              <div className="bg-red-500 h-full w-[88%] shadow-[0_0_5px_#ef4444]"></div>
+              <div className="bg-red-500 h-full shadow-[0_0_5px_#ef4444]" style={{ width: `${health}%` }}></div>
             </div>
           </div>
 

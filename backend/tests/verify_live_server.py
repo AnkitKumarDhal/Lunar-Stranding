@@ -84,8 +84,8 @@ def run_live_check():
             headers={"Content-Type": "application/json"}
         )
         res_fp = json.loads(urllib.request.urlopen(req_fp).read().decode())
-        assert res_fp["optimal_tasks"] == ["B"]
-        assert res_fp["optimal_hp_gain"] == 20
+        assert res_fp["optimal"]["tasks"] == ["B"]
+        assert res_fp["optimal"]["max_hp_gain"] == 20
         print("Live Food Production Bus Limit: Excluded 8 kW task, optimal plan is ['B'] (verified)")
 
         # 6. Rabin-Karp invalid binary rejection: verify HTTP 400

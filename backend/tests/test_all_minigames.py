@@ -400,7 +400,6 @@ def test_food_production_optimal():
     res = food_production_scheduling(req)
     assert res["status"] == "OPTIMAL"
     assert res["player_hp_gain"] == 45
-    assert res["is_valid_schedule"] is True
 
 
 def test_food_production_power_overload():
@@ -415,7 +414,6 @@ def test_food_production_power_overload():
     )
     res = food_production_scheduling(req)
     assert res["status"] == "POWER_OVERLOAD"
-    assert res["is_valid_schedule"] is False
 
 
 def test_food_production_scheduling_conflict():
@@ -430,7 +428,6 @@ def test_food_production_scheduling_conflict():
     )
     res = food_production_scheduling(req)
     assert res["status"] == "SCHEDULING_CONFLICT"
-    assert res["is_valid_schedule"] is False
 
 
 def test_food_production_rejects_invalid_intervals():
@@ -467,6 +464,34 @@ def test_food_production_rejects_duplicate_task_names():
     assert "Duplicate task name" in exc_info.value.detail
 
 
+def test_food_production_generates_random_tasks():
+    game = food_production_scheduling(FoodProductionRequest())
+    tasks = game["available_tasks"]
+
+    assert len(tasks) == 6
+    assert len({task["name"] for task in tasks}) == 6
+    for task in tasks:
+        duration = task["end_hour"] - task["start_hour"]
+        assert 0 <= task["start_hour"] < task["end_hour"] <= 24
+        assert 1.5 <= task["power_kw"] <= 4.8
+        assert 2 <= task["hp_gain"] // duration <= 4
+
+
+def test_food_production_power_and_hp_formula():
+    task = TaskModel(name="LED Cycle", start_hour=2, end_hour=7, power_kw=2.0, hp_gain=12)
+    req = FoodProductionRequest(
+        available_tasks=[task],
+        selected_tasks=["LED Cycle"],
+        current_hp=80,
+        daily_hp_drain=30,
+    )
+    result = food_production_scheduling(req)
+
+    assert result["power_consumed"] == 1.0  # 10 kWh / 10 = 1 HUD power point
+    assert result["player_hp_gain"] == 12
+    assert result["final_hp"] == 62  # 80 - 30 + 12
+
+
 def test_food_production_optimal_plan_excludes_tasks_exceeding_bus_limit():
     # Case 7: Exclude tasks exceeding bus_limit_kw from optimal plan
     # Task A: 0-5, 8 kW, 50 HP (exceeds 5 kW bus limit)
@@ -482,8 +507,8 @@ def test_food_production_optimal_plan_excludes_tasks_exceeding_bus_limit():
         bus_limit_kw=5.0
     )
     res = food_production_scheduling(req)
-    assert res["optimal_hp_gain"] == 20
-    assert res["optimal_tasks"] == ["B"]
+    assert res["optimal"]["max_hp_gain"] == 20
+    assert res["optimal"]["tasks"] == ["B"]
     assert res["status"] == "OPTIMAL"
     assert res["player_hp_gain"] == 20
 

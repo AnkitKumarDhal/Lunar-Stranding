@@ -65,6 +65,7 @@ export default function App() {
 
   const [activeHazard] = useState<HazardPayload | null>(null);
   const [power, setPower] = useState(68);
+  const [health, setHealth] = useState(80);
 
   const handleToggleDailyTask = (key: keyof DailyTasksState) => {
     setDailyTasks((prev) => ({ ...prev, [key]: true }));
@@ -157,7 +158,7 @@ export default function App() {
         </div>
       </div>
 
-      <Hud power={power} />
+      <Hud power={power} health={health} />
       <DailyRoutinePanel
         tasks={dailyTasks}
         onToggleTask={handleToggleDailyTask}
@@ -185,7 +186,15 @@ export default function App() {
 
           {activeFacility === "radio" && <RadioGame />}
 
-          {activeFacility === "greenhouse" && <FoodProductionGame />}
+          {activeFacility === "greenhouse" && (
+            <FoodProductionGame
+              currentHp={health}
+              onPowerConsumed={(amount) =>
+                setPower((current) => Math.max(0, Number((current - amount).toFixed(2))))
+              }
+              onHealthChanged={setHealth}
+            />
+          )}
 
           {activeFacility === "garage" && <RoverWorkshopGame />}
         </TacticalTabletModal>
