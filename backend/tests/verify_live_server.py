@@ -102,28 +102,24 @@ def run_live_check():
             assert e.code == 400
             print("Live Rabin-Karp Invalid Input: HTTP 400 returned (verified)")
 
-        # 7. Rover Workshop Assembly Line Scheduling: verify live POST
-        rw_payload = json.dumps({
-            "a1": [7, 9, 3, 4, 8, 4],
-            "a2": [8, 5, 6, 4, 5, 7],
-            "t1": [2, 3, 1, 3, 4],
-            "t2": [2, 1, 2, 2, 1],
-            "entry1": 2,
-            "entry2": 4,
-            "exit1": 3,
-            "exit2": 2,
-            "player_sequence": [1, 2, 1, 2, 2, 1]
-        }).encode()
+        # 7. Rover Workshop: generate a random job, then submit a line sequence.
+        req_rw_new = urllib.request.Request(
+            "http://127.0.0.1:8000/api/minigames/rover-workshop",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+        )
+        rw_game = json.loads(urllib.request.urlopen(req_rw_new).read().decode())
+        rw_payload = json.dumps({**rw_game, "player_sequence": [1] * len(rw_game["a1"])}).encode()
         req_rw = urllib.request.Request(
             "http://127.0.0.1:8000/api/minigames/rover-workshop",
             data=rw_payload,
             headers={"Content-Type": "application/json"}
         )
         res_rw = json.loads(urllib.request.urlopen(req_rw).read().decode())
-        assert res_rw["optimal_time"] == 38.0
-        assert res_rw["player_time"] == 38.0
-        assert res_rw["status"] == "OPTIMAL_SCHEDULE"
-        print("Live Rover Workshop: optimal_time 38 min, status OPTIMAL_SCHEDULE (verified)")
+        assert res_rw["optimal"]["time"] <= res_rw["player_time"]
+        assert res_rw["power_consumed"] > 0
+        assert "efficiency" not in res_rw
+        print("Live Rover Workshop: random work order and power calculation verified")
 
         print("ALL LIVE ENDPOINT CHECKS SUCCEEDED!")
     finally:

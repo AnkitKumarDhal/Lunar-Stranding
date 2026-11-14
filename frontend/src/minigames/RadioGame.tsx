@@ -3,7 +3,8 @@ import { useState } from "react";
 import {
   gameApi,
   type SignalMatchResponse,
-  type SignalTransmissionResponse,
+  type SignalTransmissionChallenge,
+  type SignalTransmissionResult,
 } from "@/services/api";
 
 export const RadioGame = () => {
@@ -20,11 +21,13 @@ export const RadioGame = () => {
   const isSignalInvalid = Boolean(signalInput && /[^01]/.test(signalInput));
   const isPatternInvalid = Boolean(patternInput && /[^01]/.test(patternInput));
 
-  // Huffman Signal Transmission State
-  const [textInput, setTextInput] = useState("LUNAR BASE EMERGENCY COMMS ESTABLISHED");
-  const [transResult, setTransResult] = useState<SignalTransmissionResponse | null>(null);
+  // Huffman decoding state
+  const [transChallenge, setTransChallenge] = useState<SignalTransmissionChallenge | null>(null);
+  const [transAnswer, setTransAnswer] = useState("");
+  const [transResult, setTransResult] = useState<SignalTransmissionResult | null>(null);
   const [transLoading, setTransLoading] = useState(false);
   const [transError, setTransError] = useState<string | null>(null);
+  const isAnswerInvalid = /[^A-Z ]/.test(transAnswer);
 
   // --- Handlers ---
   const handleMatchSubmit = async () => {
@@ -40,14 +43,28 @@ export const RadioGame = () => {
     }
   };
 
+  const handleNewTransmission = async () => {
+    setTransLoading(true);
+    setTransError(null);
+    setTransResult(null);
+    try {
+      setTransChallenge(await gameApi.newSignalTransmission());
+      setTransAnswer("");
+    } catch (err: unknown) {
+      setTransError(err instanceof Error ? err.message : "Could not load a transmission");
+    } finally {
+      setTransLoading(false);
+    }
+  };
+
   const handleTransSubmit = async () => {
+    if (!transChallenge) return;
     setTransLoading(true);
     setTransError(null);
     try {
-      const res = await gameApi.submitSignalTransmission(textInput);
-      setTransResult(res);
+      setTransResult(await gameApi.submitSignalTransmission(transChallenge, transAnswer));
     } catch (err: unknown) {
-      setTransError(err instanceof Error ? err.message : "Compression failed");
+      setTransError(err instanceof Error ? err.message : "Could not decode the transmission");
     } finally {
       setTransLoading(false);
     }
@@ -68,14 +85,17 @@ export const RadioGame = () => {
           1. SIGNAL MATCHING (RABIN-KARP)
         </button>
         <button
-          onClick={() => setActiveTab("transmission")}
+          onClick={() => {
+            setActiveTab("transmission");
+            if (!transChallenge && !transLoading) void handleNewTransmission();
+          }}
           className={`px-3 py-1.5 rounded text-xs font-bold tracking-wider transition-colors cursor-pointer ${
             activeTab === "transmission"
               ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
               : "bg-slate-800 text-slate-400 hover:text-slate-200 border border-transparent"
           }`}
         >
-          2. SIGNAL TRANSMISSION (HUFFMAN)
+          2. SIGNAL DECODING (HUFFMAN)
         </button>
       </div>
 
@@ -201,41 +221,11 @@ export const RadioGame = () => {
         </div>
       )}
 
-      {/* TAB 2: HUFFMAN SIGNAL TRANSMISSION */}
+      {/* TAB 2: HUFFMAN SIGNAL DECODING */}
       {activeTab === "transmission" && (
         <div className="flex flex-col space-y-4">
           <div className="text-xs text-slate-400">
-            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Compress lunar outbound telemetry payload into variable-length binary prefix codes using Huffman coding.
-          </div>
-
-          {/* Text Input Block */}
-          <div className="bg-slate-900/90 border border-slate-700/80 rounded-lg p-3 space-y-3">
-            <div>
-              <label className="text-[11px] text-slate-400 block font-mono mb-1">
-                TELEMETRY PAYLOAD (PLAINTEXT):
-              </label>
-              <textarea
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                rows={2}
-                placeholder="Enter transmission text..."
-                className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs font-mono text-slate-200 focus:outline-none focus:border-cyan-500"
-              />
-            </div>
-          </div>
-
-          {/* Controls */}
-          <div className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded border border-slate-800">
-            <span className="text-xs text-slate-400 font-mono">
-              Payload Length: <span className="text-cyan-400 font-bold">{textInput.length} chars</span> ({(textInput.length * 8)} bits ASCII)
-            </span>
-            <button
-              onClick={handleTransSubmit}
-              disabled={transLoading || textInput.length === 0}
-              className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {transLoading ? "ENCODING HUFFMAN TREE..." : "ENCODE & COMPRESS"}
-            </button>
+            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Decode the binary message using the character-code table.
           </div>
 
           {transError && (
@@ -244,74 +234,82 @@ export const RadioGame = () => {
             </div>
           )}
 
-          {transResult && (
-            <div className="text-xs p-3 border border-slate-700 bg-slate-900/95 rounded space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 font-bold px-2 py-0.5 rounded text-[10px] tracking-wider">
-                  STATUS: {transResult.status}
-                </span>
-                <span className="text-slate-400 font-mono">
-                  Data Reduction: <span className="text-emerald-400 font-bold">{transResult.compression_ratio_percentage}%</span>
-                </span>
-              </div>
-
-              <p className="text-slate-200">{transResult.message}</p>
-
-              {/* Compression Metrics Grid */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-2 py-2 border-y border-slate-800 text-[11px] font-mono">
+          {transChallenge && (
+            <>
+              <div className="bg-slate-900/90 border border-slate-700/80 rounded-lg p-3 space-y-3">
                 <div>
-                  <span className="text-slate-500 block">Original (8-bit ASCII):</span>
-                  <span className="text-amber-400 font-bold">{transResult.original_length_bits} bits</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Compressed Signal:</span>
-                  <span className="text-emerald-400 font-bold">{transResult.encoded_length_bits} bits</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Reduction Ratio:</span>
-                  <span className="text-cyan-400 font-bold">{transResult.compression_ratio_percentage}%</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Lossless Round-Trip:</span>
-                  <span className={`font-bold ${transResult.is_valid ? "text-emerald-400" : "text-rose-400"}`}>
-                    {transResult.is_valid ? "VERIFIED" : "FAILED"}
+                  <span className="text-[10px] text-slate-400 block mb-1 font-mono uppercase">
+                    CHARACTER : HUFFMAN CODE
                   </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(transChallenge.code_map).map(([char, code]) => (
+                      <span key={char} className="px-2 py-1 bg-slate-950 border border-slate-700 rounded font-mono text-[11px]">
+                        <span className="text-amber-300 font-bold">{char === " " ? "SPACE" : char}</span>
+                        <span className="text-slate-500 mx-1">:</span>
+                        <span className="text-cyan-300 font-semibold">{code}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <span className="text-[10px] text-slate-400 block mb-1 font-mono uppercase">
+                    ENCODED BINARY MESSAGE
+                  </span>
+                  <div className="bg-slate-950 p-3 rounded border border-slate-700 font-mono text-cyan-300 text-xs leading-relaxed break-all max-h-28 overflow-y-auto select-all">
+                    {transChallenge.encoded_signal}
+                  </div>
                 </div>
               </div>
 
-              {/* Huffman Code Mapping Badges */}
-              <div>
-                <span className="text-[10px] text-slate-500 block mb-1 font-mono uppercase">
-                  Huffman Binary Prefix Codes:
-                </span>
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto">
-                  {Object.entries(transResult.code_map).map(([char, code]) => (
-                    <span
-                      key={char}
-                      className="px-2 py-0.5 bg-slate-950 border border-slate-800 rounded font-mono text-[11px]"
-                    >
-                      <span className="text-amber-300 font-bold">{char === " " ? "SPACE" : char}</span>
-                      <span className="text-slate-500 mx-1">:</span>
-                      <span className="text-cyan-400 font-semibold">{code}</span>
-                    </span>
-                  ))}
-                </div>
+              <div className="bg-slate-900/90 border border-slate-700/80 rounded-lg p-3 space-y-2">
+                <label className="text-[11px] text-slate-400 block font-mono">
+                  DECODED MESSAGE (A-Z AND SPACES):
+                </label>
+                <textarea
+                  value={transAnswer}
+                  onChange={(e) => setTransAnswer(e.target.value.toUpperCase())}
+                  rows={2}
+                  placeholder="Type the decoded message..."
+                  className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500"
+                />
+                {isAnswerInvalid && (
+                  <p className="text-[10px] text-rose-400">Only capital letters A-Z and spaces are allowed.</p>
+                )}
               </div>
 
-              {/* Encoded Binary String */}
-              <div>
-                <span className="text-[10px] text-slate-500 block mb-1 font-mono uppercase">
-                  Encoded Binary Output:
-                </span>
-                <div className="bg-slate-950 p-2 rounded border border-slate-800 font-mono text-cyan-300 break-all select-all text-[11px] max-h-20 overflow-y-auto">
-                  {transResult.encoded_signal}
-                </div>
+              <div className="flex flex-wrap justify-between gap-2 bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                <button
+                  onClick={() => void handleNewTransmission()}
+                  disabled={transLoading}
+                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold rounded disabled:opacity-40"
+                >
+                  NEW TRANSMISSION
+                </button>
+                <button
+                  onClick={() => void handleTransSubmit()}
+                  disabled={transLoading || !transAnswer.trim() || isAnswerInvalid}
+                  className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {transLoading ? "CHECKING..." : "DECODE MESSAGE"}
+                </button>
               </div>
+            </>
+          )}
 
-              {/* Decoded Text Check */}
-              <div className="text-[11px] font-mono text-slate-400 pt-1">
-                Decoded Output: <span className="text-slate-200 font-semibold">{transResult.decoded_text}</span>
-              </div>
+          {transResult && (
+            <div className="text-xs p-3 border border-slate-700 bg-slate-900/95 rounded space-y-2">
+              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${
+                transResult.is_correct
+                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                  : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+              }`}>
+                STATUS: {transResult.status}
+              </span>
+              <p className="text-slate-200">{transResult.message}</p>
+              <p className="font-mono text-slate-400">
+                Correct message: <span className="text-cyan-300 font-bold">{transResult.correct_answer}</span>
+              </p>
             </div>
           )}
         </div>

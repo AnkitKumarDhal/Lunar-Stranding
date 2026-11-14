@@ -165,38 +165,39 @@ export interface SignalMatchResponse {
   message: string;
 }
 
-// 8. Signal Transmission (Huffman Coding)
-export interface SignalTransmissionResponse {
-  original_text: string;
-  character_frequencies: Record<string, number>;
-  code_map: Record<string, string>;
+// 8. Signal Decoding (Huffman Coding)
+export interface SignalTransmissionChallenge {
   encoded_signal: string;
-  original_length_bits: number;
-  encoded_length_bits: number;
-  compression_ratio_percentage: number;
-  decoded_text: string;
-  is_valid: boolean;
+  code_map: Record<string, string>;
+}
+
+export interface SignalTransmissionResult {
   status: string;
+  is_correct: boolean;
+  correct_answer: string;
   message: string;
 }
 
 // 9. Rover Workshop (Assembly Line Scheduling)
+export interface RoverWorkshopGameData {
+  process_names: string[];
+  a1: number[];
+  a2: number[];
+  t1: number[];
+  t2: number[];
+  entry1: number;
+  entry2: number;
+  exit1: number;
+  exit2: number;
+  power_kw: number[];
+}
+
 export interface RoverWorkshopResponse {
-  is_valid_schedule: boolean;
   status: string;
-  optimal: {
-    min_time: number;
-    optimal_sequence: number[];
-    dp1: number[];
-    dp2: number[];
-  };
-  optimal_time: number;
-  optimal_sequence: number[];
+  optimal: { time: number; sequence: number[] };
   player_time: number;
-  player_sequence: number[];
   time_difference: number;
-  efficiency: number;
-  efficiency_percentage: number;
+  power_consumed: number;
   message: string;
 }
 
@@ -323,41 +324,27 @@ export const gameApi = {
       }),
     }),
 
-  // 8. Signal Transmission (Huffman Coding)
-  submitSignalTransmission: (text: string) =>
-    request<SignalTransmissionResponse>("/minigames/signal-transmission", {
+  // 8. Signal Decoding (Huffman Coding)
+  newSignalTransmission: () =>
+    request<SignalTransmissionChallenge>("/minigames/signal-transmission", {
       method: "POST",
-      body: JSON.stringify({
-        text,
-        session_id: "default",
-      }),
+      body: JSON.stringify({}),
+    }),
+  submitSignalTransmission: (challenge: SignalTransmissionChallenge, answer: string) =>
+    request<SignalTransmissionResult>("/minigames/signal-transmission", {
+      method: "POST",
+      body: JSON.stringify({ ...challenge, answer }),
     }),
 
   // 9. Rover Workshop (Assembly Line Scheduling)
-  submitRoverWorkshop: (
-    a1: number[],
-    a2: number[],
-    t1: number[],
-    t2: number[],
-    entry1: number,
-    entry2: number,
-    exit1: number,
-    exit2: number,
-    playerSequence: number[],
-  ) =>
+  newRoverWorkshopGame: () =>
+    request<RoverWorkshopGameData>("/minigames/rover-workshop", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  submitRoverWorkshop: (game: RoverWorkshopGameData, playerSequence: number[]) =>
     request<RoverWorkshopResponse>("/minigames/rover-workshop", {
       method: "POST",
-      body: JSON.stringify({
-        a1,
-        a2,
-        t1,
-        t2,
-        entry1,
-        entry2,
-        exit1,
-        exit2,
-        player_sequence: playerSequence,
-        session_id: "default",
-      }),
+      body: JSON.stringify({ ...game, player_sequence: playerSequence }),
     }),
 };

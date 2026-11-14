@@ -14,8 +14,8 @@ from routers.mining_rover import mining_rover_navigation, MiningRoverRequest
 from routers.sample_retrieval import sample_retrieval, SampleRetrievalRequest, SampleItem
 from routers.food_production import food_production_scheduling, FoodProductionRequest, TaskModel
 from routers.signal_match import signal_match_search, SignalMatchRequest
-from routers.signal_transmission import signal_transmission_encode, SignalTransmissionRequest
-from routers.rover_workshop import rover_workshop_scheduling, RoverWorkshopRequest, assembly_line_scheduling
+from routers.signal_transmission import signal_transmission, SignalTransmissionRequest, decode_huffman
+from routers.rover_workshop import rover_workshop_scheduling, RoverWorkshopRequest
 
 
 def test_root_health():
@@ -563,231 +563,168 @@ def test_rabin_karp_rejects_invalid_integer_array():
     assert "Only 0 and 1 integer values are allowed" in exc_info2.value.detail
 
 
-# --- 8. Signal Transmission (Huffman Coding) ---
-def test_signal_transmission_roundtrip():
-    req = SignalTransmissionRequest(text="lunar base communication")
-    res = signal_transmission_encode(req)
-    assert res["is_valid"] is True
-    assert res["decoded_text"] == "lunar base communication"
-    assert res["encoded_length_bits"] < res["original_length_bits"]
-    assert res["status"] == "OPTIMAL_COMPRESSION"
+# --- 8. Signal Transmission (Huffman Decoding) ---
+def test_signal_transmission_generates_and_decodes_challenge():
+    challenge = signal_transmission(SignalTransmissionRequest())
+    assert set(challenge) == {"encoded_signal", "code_map"}
+    assert set(challenge["code_map"]).issubset(set("ABCDEFGHIJKLMNOPQRSTUVWXYZ "))
+    assert set(challenge["encoded_signal"]).issubset({"0", "1"})
+
+    answer = decode_huffman(challenge["encoded_signal"], challenge["code_map"])
+    req = SignalTransmissionRequest(**challenge, answer=answer.lower())
+    result = signal_transmission(req)
+
+    assert result["is_correct"] is True
+    assert result["status"] == "CORRECT"
+    assert result["correct_answer"] == answer
 
 
-def test_signal_transmission_edge_cases():
-    req1 = SignalTransmissionRequest(text="AAAA")
-    res1 = signal_transmission_encode(req1)
-    assert res1["is_valid"] is True
-    assert res1["decoded_text"] == "AAAA"
+def test_signal_transmission_rejects_wrong_answer():
+    challenge = signal_transmission(SignalTransmissionRequest())
+    answer = decode_huffman(challenge["encoded_signal"], challenge["code_map"])
+    wrong_answer = "X" if answer != "X" else "Y"
 
-    req2 = SignalTransmissionRequest(text="")
-    res2 = signal_transmission_encode(req2)
-    assert res2["status"] == "EMPTY_INPUT"
+    result = signal_transmission(SignalTransmissionRequest(**challenge, answer=wrong_answer))
+    assert result["is_correct"] is False
+    assert result["status"] == "INCORRECT"
+
+
+def test_signal_transmission_rejects_invalid_bits():
+    req = SignalTransmissionRequest(encoded_signal="01012", code_map={"A": "0"}, answer="A")
+    with pytest.raises(HTTPException) as exc_info:
+        signal_transmission(req)
+    assert exc_info.value.status_code == 400
 
 
 # --- 9. Rover Workshop (Assembly Line Scheduling DP) ---
+def make_workshop_request(**overrides):
+    a1 = overrides.get("a1", [7, 9, 3, 4, 8, 4])
+    n = len(a1)
+    data = {
+        "process_names": [f"Repair {i + 1}" for i in range(n)],
+        "a1": a1,
+        "a2": [6] * n,
+        "t1": [1] * (n - 1),
+        "t2": [1] * (n - 1),
+        "entry1": 1,
+        "entry2": 1,
+        "exit1": 1,
+        "exit2": 1,
+        "power_kw": [3.0] * n,
+        "player_sequence": [1] * n,
+    }
+    data.update(overrides)
+    return RoverWorkshopRequest(**data)
+
+
+def test_rover_workshop_generates_random_work_order():
+    game = rover_workshop_scheduling(RoverWorkshopRequest())
+    assert len(game["process_names"]) == 5
+    assert len(set(game["process_names"])) == 5
+    assert len(game["a1"]) == len(game["a2"]) == len(game["power_kw"]) == 5
+    assert len(game["t1"]) == len(game["t2"]) == 4
+    assert all(2.0 <= power <= 4.5 for power in game["power_kw"])
+
+    req = RoverWorkshopRequest(**game, player_sequence=[1] * 5)
+    result = rover_workshop_scheduling(req)
+    assert result["power_consumed"] > 0
+
+
 def test_rover_workshop_clrs_switching_optimal():
-    # Classic CLRS example where switching lines is optimal:
-    # Line 1: entry 2, a1 [7, 9, 3, 4, 8, 4], exit 3
-    # Line 2: entry 4, a2 [8, 5, 6, 4, 5, 7], exit 2
-    # Transfer: t1 [2, 3, 1, 3, 4], t2 [2, 1, 2, 2, 1]
-    # Optimal: sequence [1, 2, 1, 2, 2, 1] with min_time = 38
-    req = RoverWorkshopRequest(
+    req = make_workshop_request(
         a1=[7, 9, 3, 4, 8, 4],
         a2=[8, 5, 6, 4, 5, 7],
         t1=[2, 3, 1, 3, 4],
         t2=[2, 1, 2, 2, 1],
-        entry1=2,
-        entry2=4,
-        exit1=3,
-        exit2=2,
-        player_sequence=[1, 2, 1, 2, 2, 1]
+        entry1=2, entry2=4, exit1=3, exit2=2,
+        player_sequence=[1, 2, 1, 2, 2, 1],
     )
     res = rover_workshop_scheduling(req)
     assert res["status"] == "OPTIMAL_SCHEDULE"
-    assert res["optimal_time"] == 38.0
+    assert res["optimal"]["time"] == 38.0
     assert res["player_time"] == 38.0
-    assert res["optimal_sequence"] == [1, 2, 1, 2, 2, 1]
+    assert res["optimal"]["sequence"] == [1, 2, 1, 2, 2, 1]
     assert res["time_difference"] == 0.0
-    assert res["efficiency_percentage"] == 100.0
-
-    # Ensure valid standard JSON serialization without Infinity/NaN
-    serialized = json.dumps(jsonable_encoder(res), allow_nan=False)
-    assert "optimal_time" in serialized
+    assert res["power_consumed"] > 0
+    assert "efficiency" not in res
+    json.dumps(jsonable_encoder(res), allow_nan=False)
 
 
 def test_rover_workshop_staying_on_same_line_optimal():
-    # Case where staying entirely on Line 1 is optimal
-    # Line 1: entry 1, a1 [1, 1, 1], exit 1 => Total = 1 + 1 + 1 + 1 + 1 = 5
-    # Line 2: entry 10, a2 [10, 10, 10], exit 10
-    # Transfer costs: 5, 5
-    req = RoverWorkshopRequest(
-        a1=[1, 1, 1],
-        a2=[10, 10, 10],
-        t1=[5, 5],
-        t2=[5, 5],
-        entry1=1,
-        entry2=10,
-        exit1=1,
-        exit2=10,
-        player_sequence=[1, 1, 1]
+    req = make_workshop_request(
+        a1=[1, 1, 1], a2=[10, 10, 10], t1=[5, 5], t2=[5, 5],
+        entry1=1, entry2=10, exit1=1, exit2=10, player_sequence=[1, 1, 1],
     )
     res = rover_workshop_scheduling(req)
     assert res["status"] == "OPTIMAL_SCHEDULE"
-    assert res["optimal_time"] == 5.0
+    assert res["optimal"]["time"] == 5.0
     assert res["player_time"] == 5.0
-    assert res["optimal_sequence"] == [1, 1, 1]
+    assert res["optimal"]["sequence"] == [1, 1, 1]
 
 
-def test_rover_workshop_suboptimal_player_sequence():
-    # Player picks Line 2 for all stations when Line 1 is optimal
-    req = RoverWorkshopRequest(
-        a1=[1, 1, 1],
-        a2=[10, 10, 10],
-        t1=[5, 5],
-        t2=[5, 5],
-        entry1=1,
-        entry2=10,
-        exit1=1,
-        exit2=10,
-        player_sequence=[2, 2, 2]
+def test_rover_workshop_suboptimal_schedule_uses_more_power():
+    req = make_workshop_request(
+        a1=[1, 1, 1], a2=[10, 10, 10], t1=[5, 5], t2=[5, 5],
+        entry1=1, entry2=10, exit1=1, exit2=10, player_sequence=[2, 2, 2],
     )
-    res = rover_workshop_scheduling(req)
-    assert res["status"] == "SUBOPTIMAL_SCHEDULE"
-    assert res["optimal_time"] == 5.0
-    assert res["player_time"] == 50.0  # 10 + 10 + 10 + 10 + 10
-    assert res["time_difference"] == 45.0
-    assert res["efficiency_percentage"] == 10.0
+    result = rover_workshop_scheduling(req)
+    optimal_req = req.model_copy(update={"player_sequence": [1, 1, 1]})
+    optimal_result = rover_workshop_scheduling(optimal_req)
+
+    assert result["status"] == "SUBOPTIMAL_SCHEDULE"
+    assert result["player_time"] == 50.0
+    assert result["time_difference"] == 45.0
+    assert result["power_consumed"] > optimal_result["power_consumed"]
 
 
-def test_rover_workshop_invalid_sequence_length():
-    # Sequence length 2 instead of 3 stations
-    req = RoverWorkshopRequest(
-        a1=[1, 2, 3],
-        a2=[2, 3, 4],
-        t1=[1, 1],
-        t2=[1, 1],
-        entry1=1,
-        entry2=1,
-        exit1=1,
-        exit2=1,
-        player_sequence=[1, 2]
-    )
+def test_rover_workshop_invalid_sequence():
+    req = make_workshop_request(a1=[1, 2, 3], player_sequence=[1, 2])
     with pytest.raises(HTTPException) as exc_info:
         rover_workshop_scheduling(req)
     assert exc_info.value.status_code == 400
-    assert "must contain exactly 3 station choices" in exc_info.value.detail
 
-
-def test_rover_workshop_invalid_line_choice():
-    # Invalid choice 3 (only 1 or 2 allowed)
-    req = RoverWorkshopRequest(
-        a1=[1, 2, 3],
-        a2=[2, 3, 4],
-        t1=[1, 1],
-        t2=[1, 1],
-        entry1=1,
-        entry2=1,
-        exit1=1,
-        exit2=1,
-        player_sequence=[1, 3, 2]
-    )
+    req = make_workshop_request(a1=[1, 2, 3], player_sequence=[1, 3, 2])
     with pytest.raises(HTTPException) as exc_info:
         rover_workshop_scheduling(req)
     assert exc_info.value.status_code == 400
-    assert "must be either Line 1 or Line 2" in exc_info.value.detail
 
 
-def test_rover_workshop_mismatched_array_lengths():
-    # Mismatched a1 and a2 lengths
-    req = RoverWorkshopRequest(
-        a1=[1, 2, 3],
-        a2=[1, 2],
-        t1=[1, 1],
-        t2=[1, 1],
-        entry1=1,
-        entry2=1,
-        exit1=1,
-        exit2=1,
-        player_sequence=[1, 1, 1]
-    )
+def test_rover_workshop_invalid_array_lengths():
+    req = make_workshop_request(a1=[1, 2, 3], a2=[1, 2])
     with pytest.raises(HTTPException) as exc_info:
         rover_workshop_scheduling(req)
     assert exc_info.value.status_code == 400
-    assert "equal length" in exc_info.value.detail
 
-    # Mismatched transfer array length (needs n - 1 = 2)
-    req2 = RoverWorkshopRequest(
-        a1=[1, 2, 3],
-        a2=[1, 2, 3],
-        t1=[1],
-        t2=[1, 1],
-        entry1=1,
-        entry2=1,
-        exit1=1,
-        exit2=1,
-        player_sequence=[1, 1, 1]
-    )
-    with pytest.raises(HTTPException) as exc_info2:
-        rover_workshop_scheduling(req2)
-    assert exc_info2.value.status_code == 400
-    assert "contain exactly n - 1" in exc_info2.value.detail
-
-
-def test_rover_workshop_negative_times():
-    # Negative entry time
-    req = RoverWorkshopRequest(
-        a1=[1, 2],
-        a2=[1, 2],
-        t1=[1],
-        t2=[1],
-        entry1=-5,
-        entry2=1,
-        exit1=1,
-        exit2=1,
-        player_sequence=[1, 1]
-    )
+    req = make_workshop_request(a1=[1, 2, 3], t1=[1])
     with pytest.raises(HTTPException) as exc_info:
         rover_workshop_scheduling(req)
     assert exc_info.value.status_code == 400
-    assert "non-negative" in exc_info.value.detail
 
-    # Negative processing time
-    req2 = RoverWorkshopRequest(
-        a1=[1, -2],
-        a2=[1, 2],
-        t1=[1],
-        t2=[1],
-        entry1=1,
-        entry2=1,
-        exit1=1,
-        exit2=1,
-        player_sequence=[1, 1]
-    )
-    with pytest.raises(HTTPException) as exc_info2:
-        rover_workshop_scheduling(req2)
-    assert exc_info2.value.status_code == 400
-    assert "Processing times must be non-negative" in exc_info2.value.detail
+
+def test_rover_workshop_rejects_negative_times_and_power():
+    req = make_workshop_request(entry1=-1)
+    with pytest.raises(HTTPException) as exc_info:
+        rover_workshop_scheduling(req)
+    assert exc_info.value.status_code == 400
+
+    req = make_workshop_request(a1=[1, -2])
+    with pytest.raises(HTTPException) as exc_info:
+        rover_workshop_scheduling(req)
+    assert exc_info.value.status_code == 400
+
+    req = make_workshop_request(power_kw=[3.0, -1.0, 2.0, 2.0, 2.0, 2.0])
+    with pytest.raises(HTTPException) as exc_info:
+        rover_workshop_scheduling(req)
+    assert exc_info.value.status_code == 400
 
 
 def test_rover_workshop_single_station():
-    # Single station n = 1: transfer arrays are empty []
-    # Line 1: entry 2 + a1[0] 5 + exit 3 = 10
-    # Line 2: entry 1 + a2[0] 7 + exit 2 = 10
-    # Line 1: optimal time 10
-    req = RoverWorkshopRequest(
-        a1=[5],
-        a2=[7],
-        t1=[],
-        t2=[],
-        entry1=2,
-        entry2=1,
-        exit1=3,
-        exit2=2,
-        player_sequence=[1]
+    req = make_workshop_request(
+        a1=[5], a2=[7], t1=[], t2=[], entry1=2, entry2=1,
+        exit1=3, exit2=2, player_sequence=[1],
     )
     res = rover_workshop_scheduling(req)
     assert res["status"] == "OPTIMAL_SCHEDULE"
-    assert res["optimal_time"] == 10.0
+    assert res["optimal"]["time"] == 10.0
     assert res["player_time"] == 10.0
-    assert res["optimal_sequence"] == [1]
-
+    assert res["optimal"]["sequence"] == [1]

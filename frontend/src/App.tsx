@@ -39,7 +39,7 @@ const FACILITY_META: Record<FacilityType, { title: string; subtitle: string }> =
     },
     radio: {
       title: "DEEP SPACE COMMS DISH",
-      subtitle: "RABIN-KARP & HUFFMAN // SIGNAL LOCK & COMPRESSION",
+      subtitle: "RABIN-KARP & HUFFMAN // SIGNAL LOCK & DECODING",
     },
     greenhouse: {
       title: "HYDROPONICS GREENHOUSE",
@@ -196,7 +196,13 @@ export default function App() {
             />
           )}
 
-          {activeFacility === "garage" && <RoverWorkshopGame />}
+          {activeFacility === "garage" && (
+            <RoverWorkshopGame
+              onPowerConsumed={(amount) =>
+                setPower((current) => Math.max(0, Number((current - amount).toFixed(2))))
+              }
+            />
+          )}
         </TacticalTabletModal>
       )}
 

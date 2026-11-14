@@ -1,15 +1,31 @@
 from collections import Counter
 import heapq
+import random
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["signal-transmission"])
 
+MESSAGES = [
+    "LUNAR BASE EMERGENCY",
+    "OXYGEN LEVELS STABLE",
+    "ROVER RETURNING TO BASE",
+    "SOLAR ARRAY NEEDS REPAIR",
+    "COMMUNICATION LINK RESTORED",
+    "CREW CHECK IN COMPLETE",
+    "WATER SUPPLY RUNNING LOW",
+    "RADIATION ALERT ACTIVE",
+    "HABITAT PRESSURE NORMAL",
+    "DELIVERY AT CRATER SEVEN",
+]
+ALLOWED_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ ")
+
 
 class SignalTransmissionRequest(BaseModel):
-    text: str
-    session_id: str | None = "default"
+    encoded_signal: str | None = None
+    code_map: dict[str, str] | None = None
+    answer: str | None = None
 
 
 class Node:
@@ -19,131 +35,91 @@ class Node:
         self.left: Node | None = None
         self.right: Node | None = None
 
-    # Comparison operator so heapq sorts nodes by frequency
     def __lt__(self, other: "Node") -> bool:
         return self.freq < other.freq
 
 
-def build_huffman_tree(text: str) -> Node | None:
-    if not text:
-        return None
-
-    frequencies = Counter(text)
-    heap = [Node(char, freq) for char, freq in frequencies.items()]
+def build_huffman_codes(text: str) -> dict[str, str]:
+    """Build Huffman codes for the characters in a message."""
+    heap = [Node(char, freq) for char, freq in Counter(text).items()]
     heapq.heapify(heap)
 
-    # Edge case: string has only 1 unique character
-    if len(heap) == 1:
-        only_node = heapq.heappop(heap)
-        root = Node(None, only_node.freq)
-        root.left = only_node
-        return root
-
-    # Merge two lowest-frequency nodes iteratively until 1 root remains
     while len(heap) > 1:
-        left = heapq.heappop(heap)
-        right = heapq.heappop(heap)
+        left, right = heapq.heappop(heap), heapq.heappop(heap)
+        parent = Node(None, left.freq + right.freq)
+        parent.left, parent.right = left, right
+        heapq.heappush(heap, parent)
 
-        merged = Node(None, left.freq + right.freq)
-        merged.left = left
-        merged.right = right
+    codes = {}
 
-        heapq.heappush(heap, merged)
+    def visit(node: Node, code: str = "") -> None:
+        if node.char is not None:
+            codes[node.char] = code or "0"
+        else:
+            visit(node.left, code + "0")
+            visit(node.right, code + "1")
 
-    return heap[0]
-
-
-def generate_codes(node: Node | None, current_code: str = "", codes: dict[str, str] | None = None) -> dict[str, str]:
-    if codes is None:
-        codes = {}
-    if node is None:
-        return codes
-
-    # Leaf node: store character binary code
-    if node.char is not None:
-        codes[node.char] = current_code if current_code else "0"
-        return codes
-
-    generate_codes(node.left, current_code + "0", codes)
-    generate_codes(node.right, current_code + "1", codes)
+    visit(heap[0])
     return codes
 
 
-def huffman_encode(text: str):
-    if not text:
-        return "", None
-    root = build_huffman_tree(text)
-    codes = generate_codes(root)
-    encoded_text = "".join(codes[char] for char in text)
-    return encoded_text, root
+def decode_huffman(encoded: str, code_map: dict[str, str]) -> str:
+    """Decode bits using the supplied character-to-code table."""
+    if not encoded or not code_map or any(char not in ALLOWED_CHARS for char in code_map):
+        raise HTTPException(status_code=400, detail="Invalid transmission or code table")
+
+    codes = list(code_map.values())
+    if any(not code or set(code) - {"0", "1"} for code in codes):
+        raise HTTPException(status_code=400, detail="Codes must contain only 0 and 1")
+    if len(codes) != len(set(codes)) or any(
+        a != b and b.startswith(a) for a in codes for b in codes
+    ):
+        raise HTTPException(status_code=400, detail="Code table must be prefix-free")
+
+    reverse_map = {code: char for char, code in code_map.items()}
+    decoded, current = [], ""
+
+    for bit in encoded:
+        if bit not in "01":
+            raise HTTPException(status_code=400, detail="Encoded signal must contain only 0 and 1")
+        current += bit
+        if current in reverse_map:
+            decoded.append(reverse_map[current])
+            current = ""
+        elif not any(code.startswith(current) for code in codes):
+            raise HTTPException(status_code=400, detail="Encoded signal does not match the code table")
+
+    if current:
+        raise HTTPException(status_code=400, detail="Encoded signal ends with an incomplete code")
+
+    return "".join(decoded)
 
 
-def huffman_decode(encoded_text: str, root: Node | None) -> str:
-    if not encoded_text or root is None:
-        return ""
-
-    decoded_chars = []
-    current_node = root
-
-    for bit in encoded_text:
-        current_node = current_node.left if bit == "0" else current_node.right
-        if current_node is None:
-            break
-
-        # Reached leaf node
-        if current_node.char is not None:
-            decoded_chars.append(current_node.char)
-            current_node = root
-
-    return "".join(decoded_chars)
+def generate_challenge() -> dict:
+    text = random.choice(MESSAGES)
+    code_map = build_huffman_codes(text)
+    encoded = "".join(code_map[char] for char in text)
+    return {"encoded_signal": encoded, "code_map": code_map}
 
 
 @router.post("/signal-transmission")
-def signal_transmission_encode(req: SignalTransmissionRequest):
-    text = req.text
+def signal_transmission(req: SignalTransmissionRequest):
+    # An empty request creates a new message; a completed request is evaluated.
+    if req.encoded_signal is None and req.code_map is None and req.answer is None:
+        return generate_challenge()
 
-    # Handle empty input safely
-    if not text:
-        return {
-            "original_text": "",
-            "character_frequencies": {},
-            "code_map": {},
-            "encoded_signal": "",
-            "original_length_bits": 0,
-            "encoded_length_bits": 0,
-            "compression_ratio_percentage": 0.0,
-            "decoded_text": "",
-            "is_valid": True,
-            "status": "EMPTY_INPUT",
-            "message": "Empty transmission payload. 0 bits sent."
-        }
+    if req.encoded_signal is None or req.code_map is None or req.answer is None:
+        raise HTTPException(status_code=400, detail="Send the signal, code table and decoded answer")
 
-    # Generate tree and code mapping
-    encoded_str, tree_root = huffman_encode(text)
-    decoded_str = huffman_decode(encoded_str, tree_root)
-    code_map = generate_codes(tree_root)
-    freqs = dict(Counter(text))
+    correct_answer = decode_huffman(req.encoded_signal, req.code_map)
+    answer = req.answer.strip().upper()
+    if any(char not in ALLOWED_CHARS for char in answer):
+        raise HTTPException(status_code=400, detail="Answer may contain only A-Z and spaces")
 
-    original_bits = len(text) * 8
-    encoded_bits = len(encoded_str)
-    reduction = round((1.0 - (encoded_bits / original_bits)) * 100.0, 2) if original_bits > 0 else 0.0
-    is_valid = (decoded_str == text)
-
+    is_correct = answer == correct_answer
     return {
-        "original_text": text,
-        "character_frequencies": freqs,
-        "code_map": code_map,
-        "encoded_signal": encoded_str,
-        "original_length_bits": original_bits,
-        "encoded_length_bits": encoded_bits,
-        "compression_ratio_percentage": reduction,
-        "decoded_text": decoded_str,
-        "is_valid": is_valid,
-        "status": "OPTIMAL_COMPRESSION" if is_valid else "VALIDATION_FAILED",
-        "message": (
-            f"Lossless compression complete! {original_bits} bits -> {encoded_bits} bits "
-            f"({reduction}% reduction). Round-trip verified."
-            if is_valid
-            else "Huffman round-trip verification failed."
-        )
+        "status": "CORRECT" if is_correct else "INCORRECT",
+        "is_correct": is_correct,
+        "correct_answer": correct_answer,
+        "message": "Transmission decoded successfully." if is_correct else "The decoded message does not match. Try again.",
     }
