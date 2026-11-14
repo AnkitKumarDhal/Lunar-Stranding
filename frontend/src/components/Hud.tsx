@@ -1,4 +1,74 @@
-import { Battery, Activity, Clock, Terminal, Volume2 } from "lucide-react";
+// src/components/Hud.tsx
+import {
+  Battery,
+  Activity,
+  Clock,
+  Terminal,
+  Volume2,
+  ShieldCheck,
+  Wind,
+  Dumbbell,
+  SunMedium,
+  type LucideIcon,
+} from "lucide-react";
+import type { DailyTasksState } from "../types/game";
+
+interface DailyRoutinePanelProps {
+  tasks: DailyTasksState;
+  onToggleTask: (taskKey: keyof DailyTasksState) => void;
+}
+
+export function DailyRoutinePanel({
+  tasks,
+  onToggleTask,
+}: DailyRoutinePanelProps) {
+  const items: {
+    key: keyof DailyTasksState;
+    label: string;
+    icon: LucideIcon;
+  }[] = [
+    { key: "eclss", label: "CYCLE ECLSS LIFE SUPPORT", icon: Wind },
+    { key: "suitport", label: "PURGE SUITPORT AIRLOCK", icon: ShieldCheck },
+    { key: "exercise", label: "LOW-G RESISTIVE EXERCISE", icon: Dumbbell },
+    {
+      key: "solarHeightAdjusted",
+      label: "CALIBRATE SOLAR MAST HEIGHT",
+      icon: SunMedium,
+    },
+  ];
+
+  return (
+    <div className="absolute bottom-24 right-6 z-20 w-72 bg-slate-950/75 backdrop-blur-md border border-cyan-800/60 p-3.5 pointer-events-auto font-mono shadow-[0_0_15px_rgba(0,0,0,0.8)] select-none">
+      <div className="flex justify-between items-center border-b border-cyan-800 pb-1.5 mb-2.5">
+        <h2 className="text-xs font-bold text-cyan-400">DAILY CREW PROTOCOL</h2>
+        <span className="text-[9px] text-amber-400">1-CLICK TASKS</span>
+      </div>
+      <div className="space-y-1.5">
+        {items.map(({ key, label, icon: Icon }) => {
+          const done = tasks[key];
+          return (
+            <button
+              key={key}
+              disabled={done}
+              onClick={() => onToggleTask(key)}
+              className={`w-full flex items-center justify-between px-2.5 py-2 border text-[10px] tracking-wider transition-all cursor-pointer ${
+                done
+                  ? "border-cyan-900/50 bg-slate-900/40 text-cyan-600 cursor-default"
+                  : "border-amber-500/50 bg-amber-950/20 text-amber-300 hover:bg-amber-500/20 hover:border-amber-400"
+              }`}
+            >
+              <span className="flex items-center gap-2">
+                <Icon size={12} />
+                {label}
+              </span>
+              <span className="font-bold">{done ? "✓ DONE" : "[ EXEC ]"}</span>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export default function Hud() {
   const panelBase =
@@ -59,7 +129,7 @@ export default function Hud() {
         </div>
       </div>
 
-      <div className={`absolute top-1/3 right-6 w-72 ${panelBase} p-4`}>
+      <div className={`absolute top-36 right-6 w-72 ${panelBase} p-4`}>
         <h2 className="text-xs font-bold text-cyan-400 border-b border-cyan-800 pb-1.5 mb-3">
           MISSION LOG
         </h2>
@@ -87,10 +157,10 @@ export default function Hud() {
           <p className="text-cyan-300">&gt; Awaiting queries...</p>
         </div>
         <div className="flex gap-2">
-          <button className="text-[10px] border border-cyan-800 hover:bg-cyan-900/50 hover:border-cyan-500 transition-colors py-1.5 px-3 flex-1 text-cyan-300">
+          <button className="text-[10px] border border-cyan-800 hover:bg-cyan-900/50 hover:border-cyan-500 transition-colors py-1.5 px-3 flex-1 text-cyan-300 cursor-pointer">
             [ STATUS ]
           </button>
-          <button className="text-[10px] border border-cyan-800 hover:bg-cyan-900/50 hover:border-cyan-500 transition-colors py-1.5 px-3 flex-1 text-cyan-300">
+          <button className="text-[10px] border border-cyan-800 hover:bg-cyan-900/50 hover:border-cyan-500 transition-colors py-1.5 px-3 flex-1 text-cyan-300 cursor-pointer">
             [ RESCUE ]
           </button>
         </div>
