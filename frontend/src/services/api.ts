@@ -36,26 +36,23 @@ export interface WaterRoverResponse {
 }
 
 // 2. Crater Traverse (BFS)
+export interface CraterTraverseGameData {
+  graph: Record<string, string[]>;
+  start_node: string;
+}
+
 export interface CraterTraverseResponse {
-  is_valid_path: boolean;
   status: string;
   optimal: {
     path: string[];
-    steps: number;
+    steps: number | null;
     bfs_discovery_order: string[];
   };
-  optimal_path: string[];
-  optimal_steps: number;
-  minimum_steps_required: number;
-  player_path: string[];
   player_steps: number;
-  player_steps_taken: number;
-  all_craters_covered: boolean;
   total_craters: number;
   craters_visited_count: number;
   unvisited_craters: string[];
-  efficiency_percentage: number;
-  step_efficiency_percentage: number;
+  power_consumed: number;
   message: string;
 }
 
@@ -229,19 +226,15 @@ export const gameApi = {
     }),
 
   // 2. Crater Traverse (BFS)
-  submitCraterTraverse: (
-    graph: Record<string, string[]>,
-    path: string[],
-    startNode: string = "Crater_Alpha",
-  ) =>
+  getNewCraterTraverseGame: () =>
+    request<CraterTraverseGameData>("/minigames/crater-traverse", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  submitCraterTraverse: (graph: Record<string, string[]>, path: string[], startNode: string) =>
     request<CraterTraverseResponse>("/minigames/crater-traverse", {
       method: "POST",
-      body: JSON.stringify({
-        graph,
-        start_node: startNode,
-        player_path: path,
-        session_id: "default",
-      }),
+      body: JSON.stringify({ graph, start_node: startNode, player_path: path }),
     }),
 
   // 3. Solar Panels (Prim's MST)

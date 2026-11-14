@@ -64,6 +64,7 @@ export default function App() {
   });
 
   const [activeHazard] = useState<HazardPayload | null>(null);
+  const [power, setPower] = useState(68);
 
   const handleToggleDailyTask = (key: keyof DailyTasksState) => {
     setDailyTasks((prev) => ({ ...prev, [key]: true }));
@@ -156,7 +157,7 @@ export default function App() {
         </div>
       </div>
 
-      <Hud />
+      <Hud power={power} />
       <DailyRoutinePanel
         tasks={dailyTasks}
         onToggleTask={handleToggleDailyTask}
@@ -172,7 +173,13 @@ export default function App() {
 
           {activeFacility === "solar" && <SolarPanelsGame />}
 
-          {activeFacility === "crater_sensors" && <CraterTraverseGame />}
+          {activeFacility === "crater_sensors" && (
+            <CraterTraverseGame
+              onPowerConsumed={(amount) =>
+                setPower((current) => Math.max(0, Number((current - amount).toFixed(2))))
+              }
+            />
+          )}
 
           {activeFacility === "mining_rover" && <MiningRoverGame />}
 

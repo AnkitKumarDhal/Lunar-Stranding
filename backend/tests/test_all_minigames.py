@@ -8,7 +8,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi import HTTPException
 from main import root
 from routers.water_rover import water_rover_navigation, WaterRoverRequest
-from routers.crater_traverse import crater_traversal, CraterTraverseRequest
+from routers.crater_traverse import crater_traversal, CraterTraverseRequest, generate_crater_game, bfs_reachable
 from routers.solar_panels import solar_panels_mst, SolarPanelsRequest
 from routers.mining_rover import mining_rover_navigation, MiningRoverRequest
 from routers.sample_retrieval import sample_retrieval, SampleRetrievalRequest, SampleItem
@@ -115,31 +115,76 @@ def test_crater_traverse_optimal():
         "Ridge_2": ["Rim_2", "Crater_Zeta"],
         "Crater_Zeta": ["Rim_1", "Ridge_1", "Ridge_2"],
     }
-    path = ["Crater_Alpha", "Rim_1", "Crater_Zeta", "Ridge_1", "Crater_Zeta", "Ridge_2", "Rim_2"]
-    req = CraterTraverseRequest(
-        graph=graph,
-        start_node="Crater_Alpha",
-        player_path=path
-    )
+    path = ["Crater_Alpha", "Rim_1", "Ridge_1", "Crater_Zeta", "Ridge_2", "Rim_2"]
+    req = CraterTraverseRequest(graph=graph, start_node="Crater_Alpha", player_path=path)
     res = crater_traversal(req)
-    assert res["all_craters_covered"] is True
-    assert res["is_valid_path"] is True
+
+    assert res["status"] == "OPTIMAL_TRAVERSAL"
+    assert res["craters_visited_count"] == 6
+    assert res["power_consumed"] > 0
 
 
 def test_crater_traverse_incomplete():
+    graph = {"Crater_Alpha": ["Rim_1"], "Rim_1": ["Crater_Alpha", "Crater_Zeta"], "Crater_Zeta": ["Rim_1"]}
+    req = CraterTraverseRequest(graph=graph, start_node="Crater_Alpha", player_path=["Crater_Alpha", "Rim_1"])
+    res = crater_traversal(req)
+
+    assert res["status"] == "INCOMPLETE"
+    assert res["craters_visited_count"] == 2
+    assert res["unvisited_craters"] == ["Crater_Zeta"]
+    assert res["power_consumed"] > 0
+
+
+def test_crater_game_generates_connected_one_way_graph():
+    game = generate_crater_game()
+    graph = game["graph"]
+    edge_count = sum(len(neighbors) for neighbors in graph.values())
+
+    assert len(graph) == 10
+    assert 16 <= edge_count <= 20
+    assert len(bfs_reachable(graph, game["start_node"])) == 10
+
+    # Each connection is one-way; the generator never adds its reverse.
+    for node, neighbors in graph.items():
+        for neighbor in neighbors:
+            assert neighbor in graph
+            assert node not in graph[neighbor]
+
+
+def test_crater_traverse_disconnected_counts_actual_visits():
     graph = {
         "Crater_Alpha": ["Rim_1"],
-        "Rim_1": ["Crater_Alpha", "Crater_Zeta"],
-        "Crater_Zeta": ["Rim_1"]
+        "Rim_1": ["Crater_Alpha"],
+        "Crater_Zeta": [],
     }
-    req = CraterTraverseRequest(
-        graph=graph,
-        start_node="Crater_Alpha",
-        player_path=["Crater_Alpha", "Rim_1"]
-    )
+    req = CraterTraverseRequest(graph=graph, start_node="Crater_Alpha", player_path=["Crater_Alpha", "Rim_1"])
     res = crater_traversal(req)
-    assert res["status"] == "INCOMPLETE"
-    assert res["all_craters_covered"] is False
+
+    assert res["status"] == "DISCONNECTED"
+    assert res["craters_visited_count"] == 2
+    assert res["unvisited_craters"] == ["Crater_Zeta"]
+
+
+def test_crater_traverse_extra_steps_cost_more_power():
+    graph = {
+        "A": ["B", "C"],
+        "B": ["A", "C"],
+        "C": ["A", "B"],
+    }
+    optimal = crater_traversal(CraterTraverseRequest(graph=graph, start_node="A", player_path=["A", "B", "C"]))
+    suboptimal = crater_traversal(CraterTraverseRequest(graph=graph, start_node="A", player_path=["A", "B", "A", "C"]))
+
+    assert optimal["status"] == "OPTIMAL_TRAVERSAL"
+    assert suboptimal["status"] == "SUBOPTIMAL_TRAVERSAL"
+    assert suboptimal["power_consumed"] > optimal["power_consumed"]
+
+
+def test_crater_traverse_empty_request_generates_game():
+    game = crater_traversal(CraterTraverseRequest())
+    assert len(game["graph"]) == 10
+    assert game["start_node"] in game["graph"]
+
+
 
 
 # --- 3. Solar Panels (Prim's MST) ---
