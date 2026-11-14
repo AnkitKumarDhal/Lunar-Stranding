@@ -10,6 +10,7 @@ class CraterTraverseRequest(BaseModel):
     start_node: str = "Crater_Alpha"
     player_path: List[str]
     target_node: Optional[str] = None  # optional, default is to visit all nodes
+    session_id: Optional[str] = "default"
 
 
 # standard bfs to find shortest path between two nodes (backward compatibility)
