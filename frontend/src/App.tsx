@@ -1,46 +1,61 @@
-// src/App.tsx
 import { useState } from "react";
+
 import Hud, { DailyRoutinePanel } from "./components/Hud";
 import { MapBox } from "./components/MapBoxes";
 import { TacticalTabletModal } from "./components/TacticalTabletModal";
 import { HazardInterruptModal } from "./components/HazardInterruptModal";
+
+import { CraterTraverseGame } from "./minigames/CreateTraverseGame";
+import { WaterRoverGame } from "./minigames/WaterRoverGame";
+
 import type {
   FacilityType,
   DailyTasksState,
   HazardPayload,
 } from "./types/game";
 
-const FACILITY_META: Record<FacilityType, { title: string; subtitle: string }> =
+const FACILITY_META: Record<
+  FacilityType,
   {
-    solar: {
-      title: "SOLAR MICROGRID ARRAY",
-      subtitle: "PRIM'S MST // CABLE ROUTING & MAST CALIBRATION",
-    },
-    water_rover: {
-      title: "WATER EXTRACTION ROVER",
-      subtitle: "DIJKSTRA // LEAST-ENERGY CRATER SLOPE NAVIGATION",
-    },
-    mining_rover: {
-      title: "PRESSURIZED MINING ROVER",
-      subtitle: "BELLMAN-FORD & 0/1 KNAPSACK // EXCAVATION & CARGO",
-    },
-    crater_sensors: {
-      title: "CRATER PERIMETER SENSORS",
-      subtitle: "BREADTH-FIRST SEARCH // SENSOR NODE DEPLOYMENT",
-    },
-    radio: {
-      title: "DEEP SPACE COMMS DISH",
-      subtitle: "RABIN-KARP & HUFFMAN // SIGNAL LOCK & COMPRESSION",
-    },
-    greenhouse: {
-      title: "HYDROPONICS GREENHOUSE",
-      subtitle: "ACTIVITY SELECTION // NON-OVERLAPPING LED SCHEDULE",
-    },
-    garage: {
-      title: "ROVER SERVICING BAY",
-      subtitle: "ASSEMBLY LINE SCHEDULING // DIAGNOSTICS & REPAIR",
-    },
-  };
+    title: string;
+    subtitle: string;
+  }
+> = {
+  solar: {
+    title: "SOLAR MICROGRID ARRAY",
+    subtitle: "PRIM'S MST // CABLE ROUTING & MAST CALIBRATION",
+  },
+
+  water_rover: {
+    title: "WATER EXTRACTION ROVER",
+    subtitle: "DIJKSTRA // LEAST-ENERGY CRATER SLOPE NAVIGATION",
+  },
+
+  mining_rover: {
+    title: "PRESSURIZED MINING ROVER",
+    subtitle: "BELLMAN-FORD & 0/1 KNAPSACK // EXCAVATION & CARGO",
+  },
+
+  crater_sensors: {
+    title: "CRATER PERIMETER SENSORS",
+    subtitle: "BREADTH-FIRST SEARCH // VISIT EVERY CRATER",
+  },
+
+  radio: {
+    title: "DEEP SPACE COMMS DISH",
+    subtitle: "RABIN-KARP & HUFFMAN // SIGNAL LOCK & COMPRESSION",
+  },
+
+  greenhouse: {
+    title: "HYDROPONICS GREENHOUSE",
+    subtitle: "ACTIVITY SELECTION // NON-OVERLAPPING LED SCHEDULE",
+  },
+
+  garage: {
+    title: "ROVER SERVICING BAY",
+    subtitle: "ASSEMBLY LINE SCHEDULING // DIAGNOSTICS & REPAIR",
+  },
+};
 
 export default function App() {
   const [activeFacility, setActiveFacility] = useState<FacilityType | null>(
@@ -57,23 +72,47 @@ export default function App() {
   const [activeHazard] = useState<HazardPayload | null>(null);
 
   const handleToggleDailyTask = (key: keyof DailyTasksState) => {
-    setDailyTasks((prev) => ({ ...prev, [key]: true }));
+    setDailyTasks((previous) => ({
+      ...previous,
+      [key]: true,
+    }));
   };
 
   const handleExecuteHazardAction = (actionId: string) => {
-    console.log("Dispatching emergency action to backend:", actionId);
+    // Hazard actions are not backed by a backend endpoint yet.
+    console.warn("Hazard action endpoint is not implemented yet:", actionId);
   };
 
   return (
-    <div className="relative w-screen h-screen overflow-hidden bg-black select-none flex items-center justify-center">
+    <div
+      className="
+        relative flex
+        h-screen w-screen
+        select-none
+        items-center justify-center
+        overflow-hidden
+        bg-black
+      "
+    >
+      {/* LUNAR MAP */}
+
       <div
-        className="relative bg-[url('/moon.png')] bg-cover bg-center bg-no-repeat shadow-[0_0_50px_rgba(6,182,212,0.15)]"
+        className="
+          relative
+          bg-[url('/moon.png')]
+          bg-cover
+          bg-center
+          bg-no-repeat
+          shadow-[0_0_50px_rgba(6,182,212,0.15)]
+        "
         style={{
           width: "min(100vw, 100vh * (16/9))",
           height: "min(100vh, 100vw * (9/16))",
         }}
       >
-        <div className="absolute inset-0 z-10 pointer-events-auto">
+        <div className="pointer-events-auto absolute inset-0 z-10">
+          {/* SOLAR ARRAY */}
+
           <MapBox
             id="solar-array"
             type="solar"
@@ -83,6 +122,8 @@ export default function App() {
             accentColor="cyan"
             onClick={() => setActiveFacility("solar")}
           />
+
+          {/* ROVER GARAGE */}
 
           <MapBox
             id="rover-garage"
@@ -94,6 +135,8 @@ export default function App() {
             onClick={() => setActiveFacility("garage")}
           />
 
+          {/* CRATER SENSORS */}
+
           <MapBox
             id="crater-sensors"
             type="crater_sensors"
@@ -104,6 +147,8 @@ export default function App() {
             onClick={() => setActiveFacility("crater_sensors")}
           />
 
+          {/* RADIO DISH */}
+
           <MapBox
             id="radio-dish"
             type="radio"
@@ -113,6 +158,8 @@ export default function App() {
             accentColor="cyan"
             onClick={() => setActiveFacility("radio")}
           />
+
+          {/* WATER ROVER */}
 
           <MapBox
             id="water-rover"
@@ -125,6 +172,8 @@ export default function App() {
             onClick={() => setActiveFacility("water_rover")}
           />
 
+          {/* MINING ROVER */}
+
           <MapBox
             id="mining-rover"
             type="mining_rover"
@@ -134,6 +183,8 @@ export default function App() {
             accentColor="amber"
             onClick={() => setActiveFacility("mining_rover")}
           />
+
+          {/* GREENHOUSE */}
 
           <MapBox
             id="greenhouse"
@@ -147,11 +198,18 @@ export default function App() {
         </div>
       </div>
 
+      {/* HUD */}
+
       <Hud />
+
+      {/* DAILY ROUTINE */}
+
       <DailyRoutinePanel
         tasks={dailyTasks}
         onToggleTask={handleToggleDailyTask}
       />
+
+      {/* FACILITY MODAL */}
 
       {activeFacility && (
         <TacticalTabletModal
@@ -159,49 +217,57 @@ export default function App() {
           subtitle={FACILITY_META[activeFacility].subtitle}
           onClose={() => setActiveFacility(null)}
         >
-          {activeFacility === "water_rover" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ WATER ROVER (DIJKSTRA) MINIGAME VIEWPORT ]
-            </div>
-          )}
+          {/* WATER ROVER */}
+
+          {activeFacility === "water_rover" && <WaterRoverGame />}
+
+          {/* CRATER SENSORS */}
+
+          {activeFacility === "crater_sensors" && <CraterTraverseGame />}
+
+          {/* SOLAR ARRAY */}
 
           {activeFacility === "solar" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ SOLAR MICROGRID (PRIM&apos;S MST) MINIGAME VIEWPORT ]
+            <div className="flex h-80 items-center justify-center text-xs text-slate-400">
+              [ SOLAR MICROGRID (PRIM'S MST) MINIGAME VIEWPORT ]
             </div>
           )}
 
-          {activeFacility === "crater_sensors" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ CRATER SENSORS (BFS) MINIGAME VIEWPORT ]
-            </div>
-          )}
+          {/* MINING ROVER */}
 
           {activeFacility === "mining_rover" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
+            <div className="flex h-80 items-center justify-center text-xs text-slate-400">
               [ MINING ROVER (BELLMAN-FORD + KNAPSACK) MINIGAME VIEWPORT ]
             </div>
           )}
 
+          {/* RADIO */}
+
           {activeFacility === "radio" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
+            <div className="flex h-80 items-center justify-center text-xs text-slate-400">
               [ RADIO COMMS (RABIN-KARP + HUFFMAN) MINIGAME VIEWPORT ]
             </div>
           )}
 
+          {/* GREENHOUSE */}
+
           {activeFacility === "greenhouse" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
+            <div className="flex h-80 items-center justify-center text-xs text-slate-400">
               [ GREENHOUSE LED SCHEDULE (ACTIVITY SELECTION) MINIGAME VIEWPORT ]
             </div>
           )}
 
+          {/* GARAGE */}
+
           {activeFacility === "garage" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
+            <div className="flex h-80 items-center justify-center text-xs text-slate-400">
               [ ROVER SERVICING (ASSEMBLY LINE) MINIGAME VIEWPORT ]
             </div>
           )}
         </TacticalTabletModal>
       )}
+
+      {/* HAZARD MODAL */}
 
       <HazardInterruptModal
         hazard={activeHazard}

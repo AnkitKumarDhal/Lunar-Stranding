@@ -1,104 +1,123 @@
-# Compressed signal transmission using huffman coding
-
 from collections import Counter
 import heapq
+from .compat import APIRouter, BaseModel
+
+router = APIRouter(prefix="/api/minigames", tags=["signal-transmission"])
+
+
+class SignalTransmissionRequest(BaseModel):
+    text: str
 
 
 class Node:
+    def __init__(self, char, freq):
+        self.char = char
+        self.freq = freq
+        self.left = None
+        self.right = None
 
-  def __init__(self, char, freq):
-    self.char = char
-    self.freq = freq
-    self.left = None
-    self.right = None
-
-  # Define comparison so heapq can sort nodes by frequency
-  def __lt__(self, other):
-    return self.freq < other.freq
+    def __lt__(self, other):
+        return self.freq < other.freq
 
 
 def build_huffman_tree(text):
-  # Count frequency of each character
-  frequencies = Counter(text)
+    frequencies = Counter(text)
+    heap = [Node(char, freq) for char, freq in frequencies.items()]
+    heapq.heapify(heap)
 
-  # Create a min-heap of leaf nodes
-  heap = [Node(char, freq) for char, freq in frequencies.items()]
-  heapq.heapify(heap)
+    if not heap:
+        return None
 
-  # Edge case: string has only 1 unique character
-  if len(heap) == 1:
-    only_node = heap[0]
-    root = Node(None, only_node.freq)
-    root.left = only_node
-    return root
+    if len(heap) == 1:
+        only_node = heap[0]
+        root = Node(None, only_node.freq)
+        root.left = only_node
+        return root
 
-  # Merge the two lowest-frequency nodes until one root remains
-  while len(heap) > 1:
-    left = heapq.heappop(heap)
-    right = heapq.heappop(heap)
+    while len(heap) > 1:
+        left = heapq.heappop(heap)
+        right = heapq.heappop(heap)
 
-    merged = Node(None, left.freq + right.freq)
-    merged.left = left
-    merged.right = right
+        merged = Node(None, left.freq + right.freq)
+        merged.left = left
+        merged.right = right
 
-    heapq.heappush(heap, merged)
+        heapq.heappush(heap, merged)
 
-  return heap[0]
+    return heap[0]
 
 
 def generate_codes(node, current_code="", codes=None):
-  if codes is None:
-    codes = {}
-  if node is None:
+    if codes is None:
+        codes = {}
+
+    if node is None:
+        return codes
+
+    if node.char is not None:
+        codes[node.char] = current_code or "0"
+        return codes
+
+    generate_codes(node.left, current_code + "0", codes)
+    generate_codes(node.right, current_code + "1", codes)
+
     return codes
 
-  # If it's a leaf node, store the character's binary code
-  if node.char is not None:
-    codes[node.char] = current_code
-    return codes
 
-  generate_codes(node.left, current_code + "0", codes)
-  generate_codes(node.right, current_code + "1", codes)
-  return codes
-
-# converts a string "text" into huffman code string 
-# return encoded string and the huffman tree root
 def huffman_encode(text):
-  if not text:
-    return "", None
-  root = build_huffman_tree(text)
-  codes = generate_codes(root)
-  encoded_text = "".join(codes[char] for char in text)
-  return encoded_text, root
+    if not text:
+        return "", None
 
-#  Take huffman code string and huffman tree root to return the decoded string
+    root = build_huffman_tree(text)
+    codes = generate_codes(root)
+
+    encoded_text = "".join(
+        codes[char] for char in text
+    )
+
+    return encoded_text, root
+
+
 def huffman_decode(encoded_text, root):
-  if not encoded_text or root is None:
-    return ""
+    if not encoded_text or root is None:
+        return ""
 
-  decoded_chars = []
-  current_node = root
+    decoded_chars = []
+    current_node = root
 
-  for bit in encoded_text:
-    current_node = current_node.left if bit == "0" else current_node.right
+    for bit in encoded_text:
+        current_node = (
+            current_node.left
+            if bit == "0"
+            else current_node.right
+        )
 
-    # Reached a leaf/end node
-    if current_node.char is not None:
-      decoded_chars.append(current_node.char)
-      current_node = root
+        if current_node.char is not None:
+            decoded_chars.append(current_node.char)
+            current_node = root
 
-  return "".join(decoded_chars)
+    return "".join(decoded_chars)
 
 
-# Example Use
-if __name__ == "__main__":
-  sample_text = "health is wealth"
+@router.post("/signal-transmission")
+def signal_transmission(req: SignalTransmissionRequest):
+    encoded, tree_root = huffman_encode(req.text)
+    decoded = huffman_decode(encoded, tree_root)
+    codes = generate_codes(tree_root)
 
-  encoded, tree_root = huffman_encode(sample_text)
-  decoded = huffman_decode(encoded, tree_root)
-  code_map = generate_codes(tree_root)
+    original_bits = len(req.text.encode("utf-8")) * 8
+    encoded_bits = len(encoded)
 
-  print(f"Original: {sample_text}")
-  print(f"Code Map: {code_map}")
-  print(f"Encoded:  {encoded}")
-  print(f"Decoded:  {decoded}")
+    ratio = (encoded_bits / original_bits if original_bits else 0)
+
+    return {
+        "original_text": req.text,
+        "encoded_text": encoded,
+        "decoded_text": decoded,
+        "codes": codes,
+        "original_bits": original_bits,
+        "encoded_bits": encoded_bits,
+        "compression_ratio": round(ratio, 4),
+        "space_saved_percentage": (round((1 - ratio) * 100, 2) if original_bits else 0),
+        "round_trip_valid": decoded == req.text
+    }
