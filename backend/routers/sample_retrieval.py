@@ -57,17 +57,21 @@ def sample_retrieval(req: SampleRetrievalRequest):
     player_ids = req.player_sample_ids
 
     if capacity < 0:
-        raise HTTPException(status_code=400, detail="Bag capacity cannot be negative")
+        raise HTTPException(
+            status_code=400, detail="Bag capacity cannot be negative")
 
     # validate sample items
     item_map = {}
     for s in samples:
         if s.weight <= 0:
-            raise HTTPException(status_code=400, detail=f"Sample {s.id} weight must be positive")
+            raise HTTPException(status_code=400, detail=f"Sample {
+                                s.id} weight must be positive")
         if s.value < 0:
-            raise HTTPException(status_code=400, detail=f"Sample {s.id} value cannot be negative")
+            raise HTTPException(status_code=400, detail=f"Sample {
+                                s.id} value cannot be negative")
         if s.id in item_map:
-            raise HTTPException(status_code=400, detail=f"Duplicate sample ID in available pool: {s.id}")
+            raise HTTPException(
+                status_code=400, detail=f"Duplicate sample ID in available pool: {s.id}")
         item_map[s.id] = s
 
     # run knapsack
@@ -86,9 +90,11 @@ def sample_retrieval(req: SampleRetrievalRequest):
 
     for sid in player_ids:
         if sid not in item_map:
-            raise HTTPException(status_code=400, detail=f"Unknown sample id: {sid}")
+            raise HTTPException(
+                status_code=400, detail=f"Unknown sample id: {sid}")
         if sid in seen:
-            raise HTTPException(status_code=400, detail=f"Duplicate sample selected: {sid}")
+            raise HTTPException(
+                status_code=400, detail=f"Duplicate sample selected: {sid}")
         seen.add(sid)
 
         item = item_map[sid]
@@ -103,7 +109,8 @@ def sample_retrieval(req: SampleRetrievalRequest):
         eff_ratio = 0.0
         eff_pct = 0.0
         mult = 0.0
-        msg = f"Overweight! Max capacity is {capacity}kg, you took {player_wt}kg. 0 points."
+        msg = f"Overweight! Max capacity is {
+            capacity}kg, you took {player_wt}kg. 0 points."
     else:
         if opt_val == 0:
             eff_ratio = 1.0 if player_val == 0 else 0.0

@@ -1,8 +1,8 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { gameApi } from "../services/api";
 import type { CraterTraverseResult } from "../types/game";
 
-const MOCK_BFS_GRAPH: Record<string, string[]> = {
+const MOCK_GRAPH: Record<string, string[]> = {
   Crater_Alpha: ["Rim_1", "Rim_2"],
   Rim_1: ["Crater_Alpha", "Ridge_1", "Crater_Zeta"],
   Rim_2: ["Crater_Alpha", "Ridge_2"],
@@ -11,20 +11,26 @@ const MOCK_BFS_GRAPH: Record<string, string[]> = {
   Crater_Zeta: ["Rim_1", "Ridge_1", "Ridge_2"],
 };
 
-const NODE_LAYOUT: Record<string, { x: number; y: number; label: string }> = {
-  Crater_Alpha: { x: 48, y: 150, label: "ALPHA" },
-  Rim_1: { x: 145, y: 76, label: "RIM 1" },
-  Rim_2: { x: 145, y: 225, label: "RIM 2" },
-  Ridge_1: { x: 255, y: 76, label: "RIDGE 1" },
-  Ridge_2: { x: 255, y: 225, label: "RIDGE 2" },
-  Crater_Zeta: { x: 365, y: 150, label: "ZETA" },
-};
+const NODES = [
+  { id: "Crater_Alpha", x: 48, y: 150, label: "ALPHA" },
+  { id: "Rim_1", x: 145, y: 76, label: "RIM 1" },
+  { id: "Rim_2", x: 145, y: 225, label: "RIM 2" },
+  { id: "Ridge_1", x: 255, y: 76, label: "RIDGE 1" },
+  { id: "Ridge_2", x: 255, y: 225, label: "RIDGE 2" },
+  { id: "Crater_Zeta", x: 365, y: 150, label: "ZETA" },
+];
 
-const EDGES = Object.entries(MOCK_BFS_GRAPH).flatMap(([from, neighbors]) =>
-  neighbors.filter((to) => from < to).map((to) => [from, to] as const),
-);
+const EDGES = [
+  ["Crater_Alpha", "Rim_1"],
+  ["Crater_Alpha", "Rim_2"],
+  ["Rim_1", "Ridge_1"],
+  ["Rim_1", "Crater_Zeta"],
+  ["Rim_2", "Ridge_2"],
+  ["Ridge_1", "Crater_Zeta"],
+  ["Ridge_2", "Crater_Zeta"],
+] as const;
 
-export const CraterTraverseGame: React.FC = () => {
+export const CraterTraverseGame = () => {
   const [path, setPath] = useState<string[]>(["Crater_Alpha"]);
   const [result, setResult] = useState<CraterTraverseResult | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -32,33 +38,32 @@ export const CraterTraverseGame: React.FC = () => {
 
   const lastNode = path[path.length - 1];
   const visitedCount = new Set(path).size;
-  const totalNodes = Object.keys(MOCK_BFS_GRAPH).length;
-  const allVisited = visitedCount === totalNodes;
+  const totalNodes = NODES.length;
 
-  // Select a connected crater.
   const handleNodeClick = (node: string) => {
-    if (!MOCK_BFS_GRAPH[lastNode]?.includes(node)) {
+    if (!MOCK_GRAPH[lastNode]?.includes(node)) {
       return;
     }
 
     setPath((current) => [...current, node]);
-
     setResult(null);
     setError(null);
   };
 
-  // Submit traversal to backend.
   const handleSubmit = async () => {
     if (loading) return;
+
     setLoading(true);
     setError(null);
+
     try {
-      const response = await gameApi.submitCraterTraverse(MOCK_BFS_GRAPH, path);
+      const response = await gameApi.submitCraterTraverse(MOCK_GRAPH, path);
+
       setResult(response);
-    } catch (cause) {
+    } catch (error) {
       setError(
-        cause instanceof Error
-          ? cause.message
+        error instanceof Error
+          ? error.message
           : "Unable to evaluate the traversal.",
       );
     } finally {
@@ -66,16 +71,15 @@ export const CraterTraverseGame: React.FC = () => {
     }
   };
 
-  // Reset traversal.
-  const reset = () => {
+  const handleReset = () => {
     setPath(["Crater_Alpha"]);
     setResult(null);
     setError(null);
   };
 
-  // Undo last movement.
-  const undo = () => {
-    if (path.length <= 1) return;
+  const handleUndo = () => {
+    if (path.length <= 1 || loading) return;
+
     setPath((current) => current.slice(0, -1));
     setResult(null);
     setError(null);
@@ -87,7 +91,6 @@ export const CraterTraverseGame: React.FC = () => {
 
       <div className="flex items-center justify-between gap-2 text-[10px] font-mono tracking-wider text-slate-400">
         <span>BFS // VISIT ALL CRATERS</span>
-
         <span className="text-cyan-300">
           VISITED: {visitedCount}/{totalNodes}
         </span>
@@ -102,26 +105,23 @@ export const CraterTraverseGame: React.FC = () => {
           role="img"
           aria-label="Six-crater traversal graph"
         >
-          {/* EDGES */}
-
           {EDGES.map(([from, to]) => {
-            const a = NODE_LAYOUT[from];
-            const b = NODE_LAYOUT[to];
+            const start = NODES.find((node) => node.id === from)!;
+            const end = NODES.find((node) => node.id === to)!;
 
             const active = path.some(
               (node, index) =>
-                index < path.length - 1 &&
-                ((node === from && path[index + 1] === to) ||
-                  (node === to && path[index + 1] === from)),
+                (node === from && path[index + 1] === to) ||
+                (node === to && path[index + 1] === from),
             );
 
             return (
               <line
                 key={`${from}-${to}`}
-                x1={a.x}
-                y1={a.y}
-                x2={b.x}
-                y2={b.y}
+                x1={start.x}
+                y1={start.y}
+                x2={end.x}
+                y2={end.y}
                 stroke={active ? "#22d3ee" : "#64748b"}
                 strokeWidth={active ? 3 : 1.5}
                 strokeDasharray={active ? undefined : "5 5"}
@@ -129,23 +129,21 @@ export const CraterTraverseGame: React.FC = () => {
             );
           })}
 
-          {/* NODES */}
-
-          {Object.entries(NODE_LAYOUT).map(([node, position]) => {
-            const visited = path.includes(node);
-            const current = lastNode === node;
-            const adjacent = MOCK_BFS_GRAPH[lastNode]?.includes(node) ?? false;
+          {NODES.map((node) => {
+            const visited = path.includes(node.id);
+            const current = lastNode === node.id;
+            const adjacent = MOCK_GRAPH[lastNode]?.includes(node.id) ?? false;
 
             return (
               <g
-                key={node}
-                onClick={() => handleNodeClick(node)}
+                key={node.id}
+                onClick={() => handleNodeClick(node.id)}
                 className={adjacent ? "cursor-pointer" : "cursor-not-allowed"}
                 opacity={adjacent || visited ? 1 : 0.65}
               >
                 <circle
-                  cx={position.x}
-                  cy={position.y}
+                  cx={node.x}
+                  cy={node.y}
                   r={current ? 17 : 14}
                   fill={current ? "#164e63" : "#0f172a"}
                   stroke={current ? "#67e8f9" : visited ? "#22d3ee" : "#94a3b8"}
@@ -153,14 +151,14 @@ export const CraterTraverseGame: React.FC = () => {
                 />
 
                 <text
-                  x={position.x}
-                  y={position.y + 29}
+                  x={node.x}
+                  y={node.y + 29}
                   textAnchor="middle"
                   fill={visited ? "#67e8f9" : "#e2e8f0"}
                   fontSize="10"
                   fontWeight="600"
                 >
-                  {position.label}
+                  {node.label}
                 </text>
               </g>
             );
@@ -174,12 +172,12 @@ export const CraterTraverseGame: React.FC = () => {
         <span className="min-w-0 flex-1 break-words text-cyan-300">
           STEPS: {path.length - 1}
           {" · "}
-          CURRENT: {NODE_LAYOUT[lastNode]?.label}
+          CURRENT: {NODES.find((node) => node.id === lastNode)?.label}
         </span>
 
         <div className="flex gap-2">
           <button
-            onClick={undo}
+            onClick={handleUndo}
             disabled={path.length <= 1 || loading}
             className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
           >
@@ -187,7 +185,7 @@ export const CraterTraverseGame: React.FC = () => {
           </button>
 
           <button
-            onClick={reset}
+            onClick={handleReset}
             disabled={loading}
             className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
           >
@@ -199,19 +197,17 @@ export const CraterTraverseGame: React.FC = () => {
             disabled={loading}
             className="rounded border border-cyan-400 bg-cyan-500/20 px-3 py-1.5 font-bold text-cyan-300 disabled:opacity-40"
           >
-            {loading ? "EVALUATING…" : "SUBMIT TRAVERSAL"}
+            {loading ? "EVALUATING..." : "SUBMIT TRAVERSAL"}
           </button>
         </div>
       </div>
 
-      {!allVisited && (
+      {visitedCount < totalNodes && (
         <p className="text-[10px] text-slate-400">
           Visit all six craters. You may revisit a crater when the route
           requires it.
         </p>
       )}
-
-      {/* ERROR */}
 
       {error && (
         <div

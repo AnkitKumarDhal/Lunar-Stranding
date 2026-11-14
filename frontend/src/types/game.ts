@@ -26,16 +26,9 @@ export interface DailyTasksState {
   solarHeightAdjusted: boolean;
 }
 
-// WATER ROVER
 export interface WaterRoverResult {
   is_valid_path: boolean;
-  status:
-    | "UNREACHABLE"
-    | "INVALID_ROUTE"
-    | "STRANDED"
-    | "OPTIMAL"
-    | "SUBOPTIMAL"
-    | string;
+  status: string;
   optimal_path: string[];
   optimal_cost: number;
   player_path: string[];
@@ -47,16 +40,9 @@ export interface WaterRoverResult {
   message: string;
 }
 
-// CRATER TRAVERSE
 export interface CraterTraverseResult {
   is_valid_path: boolean;
-  status:
-    | "DISCONNECTED"
-    | "INVALID_PATH"
-    | "INCOMPLETE"
-    | "OPTIMAL_TRAVERSAL"
-    | "SUBOPTIMAL_TRAVERSAL"
-    | string;
+  status: string;
   optimal: {
     path: string[];
     steps: number | null;
@@ -77,21 +63,20 @@ export interface CraterTraverseResult {
   message: string;
 }
 
-// FOOD PRODUCTION
-export interface FoodProductionResult {
-  status: "POWER_OVERLOAD" | "OK" | string;
-  message?: string;
-  hp_gained?: number;
-  max_possible_hp_gain?: number;
-  daily_drain?: number;
-  new_hp?: number;
-  survived_day: boolean;
-  optimal_plan?: string[];
+export interface SampleItem {
+  id: string;
+  name: string;
+  weight: number;
+  value: number;
 }
 
-// SAMPLE RETRIEVAL
 export interface SampleRetrievalResult {
   bag_capacity: number;
+  optimal: {
+    max_value: number;
+    total_weight: number;
+    sample_ids: string[];
+  };
   optimal_max_value: number;
   optimal_total_weight: number;
   optimal_sample_ids: string[];
@@ -105,7 +90,25 @@ export interface SampleRetrievalResult {
   message: string;
 }
 
-// SIGNAL MATCH
+export interface GreenhouseActivity {
+  name: string;
+  start_hour: number;
+  end_hour: number;
+  power_kw: number;
+  hp_gain: number;
+}
+
+export interface FoodProductionResult {
+  status: string;
+  message: string;
+  hp_gained?: number;
+  max_possible_hp_gain?: number;
+  daily_drain?: number;
+  new_hp: number;
+  survived_day: boolean;
+  optimal_plan?: string[];
+}
+
 export interface SignalMatchResult {
   match_found: boolean;
   index: number;
@@ -113,7 +116,6 @@ export interface SignalMatchResult {
   pattern_length: number;
 }
 
-// SIGNAL TRANSMISSION
 export interface SignalTransmissionResult {
   original_text: string;
   encoded_text: string;
