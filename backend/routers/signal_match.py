@@ -1,17 +1,17 @@
-from typing import List, Optional, Union, Tuple
-from .compat import APIRouter, HTTPException, BaseModel
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["signal-match"])
 
 
 class SignalMatchRequest(BaseModel):
-    signal: Union[str, List[int]]
-    pattern: Union[str, List[int]]
-    session_id: Optional[str] = "default"
+    signal: str | list[int]
+    pattern: str | list[int]
+    session_id: str | None = "default"
 
 
 # Validate binary string or integer list input strictly without silently modifying
-def parse_and_validate_binary(raw_val: Union[str, List[int]], field_name: str) -> Tuple[List[int], str]:
+def parse_and_validate_binary(raw_val: str | list[int], field_name: str) -> tuple[list[int], str]:
     if isinstance(raw_val, str):
         cleaned = raw_val.strip()
         for ch in cleaned:
@@ -41,7 +41,7 @@ def parse_and_validate_binary(raw_val: Union[str, List[int]], field_name: str) -
 
 
 # Rabin-Karp substring search algorithm using rolling hash
-def rabin_karp_search(signal_list: List[int], pattern_list: List[int], d: int = 10, q: int = 13) -> int:
+def rabin_karp_search(signal_list: list[int], pattern_list: list[int], d: int = 10, q: int = 13) -> int:
     n = len(signal_list)
     m = len(pattern_list)
 

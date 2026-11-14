@@ -1,17 +1,18 @@
 import heapq
-from typing import Dict, List, Optional
-from .compat import APIRouter, HTTPException, BaseModel
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["water-rover"])
 
 
 class WaterRoverRequest(BaseModel):
-    graph: Dict[str, Dict[str, float]]
+    graph: dict[str, dict[str, float]]
     start_node: str = "Base"
     target_node: str = "IceDeposit"
-    player_path: List[str]
+    player_path: list[str]
     initial_battery: float = 100.0
-    session_id: Optional[str] = "default"
+    session_id: str | None = "default"
 
 
 # dijkstra algorithm with lazy heap deletion

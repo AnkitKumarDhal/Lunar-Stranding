@@ -1,33 +1,33 @@
-from typing import List, Tuple, Optional
-from .compat import APIRouter, HTTPException, BaseModel
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["rover-workshop"])
 
 
 class RoverWorkshopRequest(BaseModel):
-    a1: List[float]  # Processing times for stations on Line 1
-    a2: List[float]  # Processing times for stations on Line 2
-    t1: List[float]  # Transfer times from Line 1 to Line 2 (size n - 1)
-    t2: List[float]  # Transfer times from Line 2 to Line 1 (size n - 1)
+    a1: list[float]  # Processing times for stations on Line 1
+    a2: list[float]  # Processing times for stations on Line 2
+    t1: list[float]  # Transfer times from Line 1 to Line 2 (size n - 1)
+    t2: list[float]  # Transfer times from Line 2 to Line 1 (size n - 1)
     entry1: float    # Entry time onto Line 1
     entry2: float    # Entry time onto Line 2
     exit1: float     # Exit time from Line 1
     exit2: float     # Exit time from Line 2
-    player_sequence: List[int]  # List of 1s and 2s indicating player's station choices
-    session_id: Optional[str] = "default"
+    player_sequence: list[int]  # line choice (1 or 2) for each station
+    session_id: str | None = "default"
 
 
 # Classic CLRS Assembly Line Scheduling using Dynamic Programming
 def assembly_line_scheduling(
-    a1: List[float],
-    a2: List[float],
-    t1: List[float],
-    t2: List[float],
+    a1: list[float],
+    a2: list[float],
+    t1: list[float],
+    t2: list[float],
     entry1: float,
     entry2: float,
     exit1: float,
     exit2: float,
-) -> Tuple[float, List[int], List[float], List[float]]:
+) -> tuple[float, list[int], list[float], list[float]]:
     """
     Computes minimum total assembly time and optimal sequence of assembly lines
     using Dynamic Programming (CLRS classic algorithm).
@@ -102,15 +102,15 @@ def assembly_line_scheduling(
 
 # Calculate the exact total time for a player's selected line sequence
 def calculate_player_time(
-    a1: List[float],
-    a2: List[float],
-    t1: List[float],
-    t2: List[float],
+    a1: list[float],
+    a2: list[float],
+    t1: list[float],
+    t2: list[float],
     entry1: float,
     entry2: float,
     exit1: float,
     exit2: float,
-    player_sequence: List[int],
+    player_sequence: list[int],
 ) -> float:
     n = len(player_sequence)
     if n == 0:

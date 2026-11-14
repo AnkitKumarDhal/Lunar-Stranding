@@ -60,6 +60,11 @@ export interface CraterTraverseResponse {
 }
 
 // 3. Solar Panels (Prim's MST)
+export interface SolarPanelsGameData {
+  graph: Record<string, Record<string, number>>;
+  start_node: string;
+}
+
 export interface SolarPanelsResponse {
   is_valid_mst: boolean;
   status: string;
@@ -240,6 +245,11 @@ export const gameApi = {
     }),
 
   // 3. Solar Panels (Prim's MST)
+  newSolarPanelsGame: () =>
+    request<SolarPanelsGameData>("/minigames/solar-panels", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
   submitSolarPanels: (
     graph: Record<string, Record<string, number>>,
     playerEdges: string[][],
@@ -251,7 +261,6 @@ export const gameApi = {
         graph,
         start_node: startNode,
         player_edges: playerEdges,
-        session_id: "default",
       }),
     }),
 

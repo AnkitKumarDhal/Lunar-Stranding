@@ -1,19 +1,20 @@
 from collections import deque
-from typing import Dict, List, Optional
-from .compat import APIRouter, HTTPException, BaseModel
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["crater-traverse"])
 
 
 class CraterTraverseRequest(BaseModel):
-    graph: Dict[str, List[str]]
+    graph: dict[str, list[str]]
     start_node: str = "Crater_Alpha"
-    player_path: List[str]
-    target_node: Optional[str] = None  # optional, default is to visit all nodes
-    session_id: Optional[str] = "default"
+    player_path: list[str]
+    target_node: str | None = None  # optional, default is to visit all nodes
+    session_id: str | None = "default"
 
 
-# standard bfs to find shortest path between two nodes (backward compatibility)
+# Standard BFS for the shortest path between two nodes.
 def bfs_shortest_path(graph, start, target):
     if start == target:
         return 0, [start]

@@ -1,5 +1,5 @@
-from typing import List, Dict, Optional
-from .compat import APIRouter, HTTPException, BaseModel
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["sample-retrieval"])
 
@@ -13,9 +13,9 @@ class SampleItem(BaseModel):
 
 class SampleRetrievalRequest(BaseModel):
     bag_capacity: int = 15
-    available_samples: List[SampleItem]
-    player_sample_ids: List[str]
-    session_id: Optional[str] = "default"
+    available_samples: list[SampleItem]
+    player_sample_ids: list[str]
+    session_id: str | None = "default"
 
 
 # 0/1 knapsack dynamic programming algorithm

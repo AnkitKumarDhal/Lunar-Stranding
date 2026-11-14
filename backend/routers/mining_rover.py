@@ -1,19 +1,19 @@
-from typing import Dict, List, Tuple, Optional, Any
-from .compat import APIRouter, HTTPException, BaseModel
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["mining-rover"])
 
 
 class MiningRoverRequest(BaseModel):
-    edges: List[List[Any]]  # [[u, v, weight], ...]
+    edges: list[list[object]]  # [[u, v, weight], ...]
     start_node: str = "Base"
     target_node: str = "Excavation"
-    player_path: List[str]
-    session_id: Optional[str] = "default"
+    player_path: list[str]
+    session_id: str | None = "default"
 
 
 # Bellman-Ford algorithm to compute shortest paths with negative weights
-def bellman_ford_shortest_path(edges: List[Tuple[str, str, float]], start_node: Optional[str] = None):
+def bellman_ford_shortest_path(edges: list[tuple[str, str, float]], start_node: str | None = None):
     # Extract unique sorted nodes from the edge list
     nodes = sorted(list(set(u for u, _, _ in edges) | set(v for _, v, _ in edges)))
     if not nodes:
@@ -22,8 +22,8 @@ def bellman_ford_shortest_path(edges: List[Tuple[str, str, float]], start_node: 
     if start_node is None or start_node not in nodes:
         start_node = nodes[0]
 
-    dist: Dict[str, float] = {node: float("inf") for node in nodes}
-    predecessor: Dict[str, Optional[str]] = {node: None for node in nodes}
+    dist: dict[str, float] = {node: float("inf") for node in nodes}
+    predecessor: dict[str, str | None] = {node: None for node in nodes}
 
     dist[start_node] = 0.0
 
@@ -45,7 +45,7 @@ def bellman_ford_shortest_path(edges: List[Tuple[str, str, float]], start_node: 
 
 
 # Validate player's path and calculate total energy cost
-def validate_player_route(edges: List[Tuple[str, str, float]], path: List[str], start_node: str, target_node: str):
+def validate_player_route(edges: list[tuple[str, str, float]], path: list[str], start_node: str, target_node: str):
     if not path:
         return False, 0.0, "Path cannot be empty."
     if path[0] != start_node:
@@ -54,7 +54,7 @@ def validate_player_route(edges: List[Tuple[str, str, float]], path: List[str], 
         return False, 0.0, f"Path must end at {target_node}."
 
     # Map directed edge (u, v) -> weight
-    edge_map: Dict[Tuple[str, str], float] = {}
+    edge_map: dict[tuple[str, str], float] = {}
     for u, v, w in edges:
         # If multiple directed edges between u and v exist, keep the lowest weight
         if (u, v) not in edge_map or w < edge_map[(u, v)]:
@@ -81,7 +81,7 @@ def mining_rover_navigation(req: MiningRoverRequest):
         raise HTTPException(status_code=400, detail="Edges list cannot be empty")
 
     # Parse and validate edge triples
-    parsed_edges: List[Tuple[str, str, float]] = []
+    parsed_edges: list[tuple[str, str, float]] = []
     for edge in raw_edges:
         if len(edge) != 3:
             raise HTTPException(status_code=400, detail=f"Invalid edge format: {edge}. Expected [u, v, weight]")
@@ -100,7 +100,7 @@ def mining_rover_navigation(req: MiningRoverRequest):
     opt_cost = distances.get(target, float("inf"))
 
     # Reconstruct optimal path from predecessors if reachable and no negative cycle
-    opt_path: List[str] = []
+    opt_path: list[str] = []
     if opt_cost != float("inf") and not has_neg_cycle:
         curr = target
         visited = set()

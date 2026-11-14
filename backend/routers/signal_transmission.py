@@ -1,29 +1,30 @@
 from collections import Counter
 import heapq
-from typing import Dict, Optional
-from .compat import APIRouter, HTTPException, BaseModel
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["signal-transmission"])
 
 
 class SignalTransmissionRequest(BaseModel):
     text: str
-    session_id: Optional[str] = "default"
+    session_id: str | None = "default"
 
 
 class Node:
-    def __init__(self, char: Optional[str], freq: int):
+    def __init__(self, char: str | None, freq: int):
         self.char = char
         self.freq = freq
-        self.left: Optional[Node] = None
-        self.right: Optional[Node] = None
+        self.left: Node | None = None
+        self.right: Node | None = None
 
     # Comparison operator so heapq sorts nodes by frequency
     def __lt__(self, other: "Node") -> bool:
         return self.freq < other.freq
 
 
-def build_huffman_tree(text: str) -> Optional[Node]:
+def build_huffman_tree(text: str) -> Node | None:
     if not text:
         return None
 
@@ -52,7 +53,7 @@ def build_huffman_tree(text: str) -> Optional[Node]:
     return heap[0]
 
 
-def generate_codes(node: Optional[Node], current_code: str = "", codes: Optional[Dict[str, str]] = None) -> Dict[str, str]:
+def generate_codes(node: Node | None, current_code: str = "", codes: dict[str, str] | None = None) -> dict[str, str]:
     if codes is None:
         codes = {}
     if node is None:
@@ -77,7 +78,7 @@ def huffman_encode(text: str):
     return encoded_text, root
 
 
-def huffman_decode(encoded_text: str, root: Optional[Node]) -> str:
+def huffman_decode(encoded_text: str, root: Node | None) -> str:
     if not encoded_text or root is None:
         return ""
 

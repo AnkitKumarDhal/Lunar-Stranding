@@ -178,6 +178,60 @@ def test_solar_panels_invalid_edges():
     assert res["status"] == "INVALID_SPANNING_TREE"
 
 
+def test_solar_panels_disconnected_graph():
+    graph = {
+        "A": {"B": 1.0},
+        "B": {"A": 1.0},
+        "C": {"D": 2.0},
+        "D": {"C": 2.0},
+    }
+    res = solar_panels_mst(SolarPanelsRequest(graph=graph))
+    assert res["status"] == "DISCONNECTED_GRAPH"
+
+
+def test_solar_panels_compares_unrounded_costs():
+    graph = {
+        "A": {"B": 1.0, "C": 1.004},
+        "B": {"A": 1.0, "C": 1.0},
+        "C": {"A": 1.004, "B": 1.0},
+    }
+    res = solar_panels_mst(SolarPanelsRequest(
+        graph=graph,
+        player_edges=[["A", "B"], ["A", "C"]],
+    ))
+    assert res["status"] == "SUBOPTIMAL"
+    assert res["player_cost"] == res["optimal_cost"]
+
+
+def test_solar_panels_randomized_game():
+    game = solar_panels_mst(SolarPanelsRequest())
+    graph = game["graph"]
+    nodes = list(graph)
+
+    assert len(nodes) == 10
+    assert game["start_node"] == "A"
+
+    edge_count = sum(len(neighbors) for neighbors in graph.values()) // 2
+    assert 15 <= edge_count <= 20
+
+    for u, neighbors in graph.items():
+        for v, weight in neighbors.items():
+            assert graph[v][u] == weight
+            assert 1 <= weight <= 15
+
+    # Confirm every generated panel can be reached from the start node.
+    visited = {game["start_node"]}
+    queue = [game["start_node"]]
+    while queue:
+        current = queue.pop(0)
+        for neighbor in graph[current]:
+            if neighbor not in visited:
+                visited.add(neighbor)
+                queue.append(neighbor)
+
+    assert len(visited) == len(nodes)
+
+
 # --- 4. Mining Rover (Bellman-Ford) ---
 def test_mining_rover_optimal():
     edges = [

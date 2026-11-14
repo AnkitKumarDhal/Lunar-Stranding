@@ -1,6 +1,7 @@
 from bisect import bisect_right
-from typing import List, Optional, Dict, Any
-from .compat import APIRouter, HTTPException, BaseModel
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["food-production"])
 
@@ -14,13 +15,13 @@ class TaskModel(BaseModel):
 
 
 class FoodProductionRequest(BaseModel):
-    available_tasks: List[TaskModel]
-    selected_tasks: Optional[List[str]] = None
-    selected_task_names: Optional[List[str]] = None
+    available_tasks: list[TaskModel]
+    selected_tasks: list[str] | None = None
+    selected_task_names: list[str] | None = None
     current_hp: int = 100
     daily_hp_drain: int = 30
     bus_limit_kw: float = 5.0
-    session_id: Optional[str] = "default"
+    session_id: str | None = "default"
 
 
 class GreenhouseTask:
@@ -33,7 +34,7 @@ class GreenhouseTask:
 
 
 # Weighted Activity Selection via Dynamic Programming
-def solve_best_schedule(tasks: List[GreenhouseTask], bus_limit_kw: Optional[float] = None):
+def solve_best_schedule(tasks: list[GreenhouseTask], bus_limit_kw: float | None = None):
     # Exclude infeasible tasks whose individual power draw exceeds the power bus limit
     if bus_limit_kw is not None:
         tasks = [t for t in tasks if t.power_kw <= bus_limit_kw]
@@ -57,7 +58,7 @@ def solve_best_schedule(tasks: List[GreenhouseTask], bus_limit_kw: Optional[floa
         dp[i] = max(take, skip)
 
     # Backtrack to identify chosen tasks
-    chosen_tasks: List[GreenhouseTask] = []
+    chosen_tasks: list[GreenhouseTask] = []
     i = n
     while i > 0:
         current = sorted_tasks[i - 1]
@@ -75,12 +76,12 @@ def solve_best_schedule(tasks: List[GreenhouseTask], bus_limit_kw: Optional[floa
 
 # Simulate day with accurate power bus and non-overlapping schedule validation
 def simulate_day(
-    all_tasks: List[GreenhouseTask],
-    player_chosen_names: List[str],
+    all_tasks: list[GreenhouseTask],
+    player_chosen_names: list[str],
     current_hp: int = 100,
     daily_hp_drain: int = 30,
     bus_limit_kw: float = 5.0,
-) -> Dict[str, Any]:
+) -> dict[str, object]:
     task_map = {t.name: t for t in all_tasks}
     chosen = [task_map[name] for name in player_chosen_names if name in task_map]
 

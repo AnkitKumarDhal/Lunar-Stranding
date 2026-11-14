@@ -1,26 +1,29 @@
-from typing import Dict, List, Tuple, Optional
-from .compat import APIRouter, HTTPException, BaseModel
+import random
+from itertools import combinations
+
+from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/minigames", tags=["solar-panels"])
+NODES = list("ABCDEFGHIJ")
 
 
 class SolarPanelsRequest(BaseModel):
-    graph: Dict[str, Dict[str, float]]
+    graph: dict[str, dict[str, float]] | None = None
     start_node: str = "A"
-    player_edges: List[List[str]]
-    session_id: Optional[str] = "default"
+    player_edges: list[list[str]] = Field(default_factory=list)
 
 
 # Prim's minimum spanning tree algorithm
-def prim_minimum_spanning_tree(graph: Dict[str, List[Tuple[str, float]]], start_node: Optional[str] = None):
+def prim_minimum_spanning_tree(graph: dict[str, list[tuple[str, float]]], start_node: str | None = None):
     if not graph:
-        return {}, 0.0
+        return {}, {}, 0.0, False
 
     if start_node is None or start_node not in graph:
         start_node = next(iter(graph))
 
-    cost: Dict[str, float] = {node: float("inf") for node in graph}
-    predecessor: Dict[str, Optional[str]] = {node: None for node in graph}
+    cost: dict[str, float] = {node: float("inf") for node in graph}
+    predecessor: dict[str, str | None] = {node: None for node in graph}
 
     cost[start_node] = 0.0
     q = list(graph.keys())
@@ -29,6 +32,8 @@ def prim_minimum_spanning_tree(graph: Dict[str, List[Tuple[str, float]]], start_
         # Find unvisited node with the minimum edge weight to the tree
         u = min(q, key=lambda node: cost[node])
         q.remove(u)
+        if cost[u] == float("inf"):
+            break
 
         for v, weight in graph[u]:
             if v in q and weight < cost[v]:
@@ -42,8 +47,31 @@ def prim_minimum_spanning_tree(graph: Dict[str, List[Tuple[str, float]]], start_
     return predecessor, cost, total_cost, all_connected
 
 
+def generate_solar_game():
+    # Start with a random spanning tree so the graph is always connected.
+    edges = {}
+    for i in range(1, len(NODES)):
+        u = NODES[i]
+        v = random.choice(NODES[:i])
+        edges[tuple(sorted((u, v)))] = random.randint(1, 15)
+
+    # Add random links until the graph has 15-20 edges.
+    remaining = [edge for edge in combinations(NODES, 2) if edge not in edges]
+    target = random.randint(15, 20)
+    for edge in random.sample(remaining, target - len(edges)):
+        edges[edge] = random.randint(1, 15)
+
+    # Store each undirected connection in both directions for the API.
+    graph = {node: {} for node in NODES}
+    for (u, v), weight in edges.items():
+        graph[u][v] = weight
+        graph[v][u] = weight
+
+    return {"graph": graph, "start_node": "A"}
+
+
 # Validate player's selected edges and calculate cable cost
-def validate_player_mst(graph: Dict[str, Dict[str, float]], player_edges: List[List[str]], start_node: str):
+def validate_player_mst(graph: dict[str, dict[str, float]], player_edges: list[list[str]], start_node: str):
     nodes = list(graph.keys())
     n = len(nodes)
 
@@ -53,7 +81,7 @@ def validate_player_mst(graph: Dict[str, Dict[str, float]], player_edges: List[L
     # Normalize undirected edges (u, v) where u < v
     unique_edges = set()
     total_cost = 0.0
-    adj: Dict[str, List[str]] = {node: [] for node in nodes}
+    adj: dict[str, list[str]] = {node: [] for node in nodes}
 
     for edge in player_edges:
         if len(edge) != 2:
@@ -119,6 +147,10 @@ def validate_player_mst(graph: Dict[str, Dict[str, float]], player_edges: List[L
 
 @router.post("/solar-panels")
 def solar_panels_mst(req: SolarPanelsRequest):
+    # An empty request starts a new randomized game on the same endpoint.
+    if req.graph is None:
+        return generate_solar_game()
+
     graph = req.graph
     start = req.start_node
     player_edges = req.player_edges
@@ -129,7 +161,7 @@ def solar_panels_mst(req: SolarPanelsRequest):
         raise HTTPException(status_code=400, detail=f"Start node '{start}' not found in graph")
 
     # Convert graph to adjacency list format for Prim's algorithm
-    adj_list: Dict[str, List[Tuple[str, float]]] = {}
+    adj_list: dict[str, list[tuple[str, float]]] = {}
     for u, neighbors in graph.items():
         adj_list[u] = [(v, float(w)) for v, w in neighbors.items()]
 
@@ -163,7 +195,7 @@ def solar_panels_mst(req: SolarPanelsRequest):
         }
 
     # Validate player's solution
-    is_valid, player_cost, valid_edges, err = validate_player_mst(graph, player_edges, start)
+    is_valid, player_cost, _, err = validate_player_mst(graph, player_edges, start)
     round_player_cost = round(player_cost, 2)
     round_opt_cost = round(opt_cost, 2)
 
@@ -182,15 +214,15 @@ def solar_panels_mst(req: SolarPanelsRequest):
         }
 
     # Calculate efficiency
-    if round_player_cost <= round_opt_cost:
+    if player_cost <= opt_cost:
         eff_ratio = 1.0
         eff_pct = 100.0
         status = "OPTIMAL"
         msg = f"OPTIMAL MST! Connected all {len(graph)} solar panels with minimum cable cost ({round_player_cost}m)."
     else:
-        eff_ratio = round_opt_cost / round_player_cost if round_player_cost > 0 else 0.0
+        eff_ratio = opt_cost / player_cost if player_cost > 0 else 0.0
         eff_pct = round(eff_ratio * 100.0, 2)
-        excess = round(round_player_cost - round_opt_cost, 2)
+        excess = round(player_cost - opt_cost, 2)
         status = "SUBOPTIMAL"
         msg = f"Valid spanning tree formed, but used {excess}m excess cable ({round_player_cost}m vs optimal {round_opt_cost}m). {eff_pct}% efficiency."
 
