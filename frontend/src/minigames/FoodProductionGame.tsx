@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { gameApi } from "../services/api";
+import { MinigameLayout } from "../components/MinigameLayout";
 import type { FoodProductionResult, GreenhouseActivity } from "../types/game";
 
 const CURRENT_HP = 80;
@@ -109,14 +110,103 @@ export const FoodProductionGame = () => {
   };
 
   return (
-    <div className="flex h-full min-h-[380px] flex-col gap-4">
-      {/* HEADER */}
-
-      <div className="flex items-center justify-between text-[10px] font-mono tracking-wider text-slate-400">
-        <span>GREENHOUSE // ACTIVITY SCHEDULING</span>
+    <MinigameLayout
+      title="GREENHOUSE // ACTIVITY SCHEDULING"
+      headerRight={
         <span className="text-emerald-300">DYNAMIC PROGRAMMING</span>
-      </div>
+      }
+      controls={
+        <>
+          <span className="text-[10px] font-mono text-slate-400">
+            {selectedTasks.length} ACTIVITIES SELECTED
+          </span>
 
+          <div className="flex gap-2">
+            <button
+              onClick={handleReset}
+              disabled={loading}
+              className="rounded border border-slate-600 px-3 py-1.5 text-[11px] text-slate-200 disabled:opacity-40"
+            >
+              RESET
+            </button>
+
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="rounded border border-emerald-400 bg-emerald-500/20 px-3 py-1.5 text-[11px] font-bold text-emerald-300 disabled:opacity-40"
+            >
+              {loading ? "SIMULATING..." : "RUN DAILY SCHEDULE"}
+            </button>
+          </div>
+        </>
+      }
+      error={error}
+      result={
+        result && (
+          <>
+            <div
+              className={`font-bold ${
+                result.status === "OK" ? "text-emerald-300" : "text-red-400"
+              }`}
+            >
+              STATUS: {result.status}
+            </div>
+
+            <p>{result.message}</p>
+
+            <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
+              <span>
+                HP gained:{" "}
+                <strong className="text-slate-100">
+                  {result.hp_gained ?? 0}
+                </strong>
+              </span>
+
+              <span>
+                Daily drain:{" "}
+                <strong className="text-slate-100">
+                  {result.daily_drain ?? 30}
+                </strong>
+              </span>
+
+              <span>
+                New crew HP:{" "}
+                <strong className="text-slate-100">{result.new_hp}/100</strong>
+              </span>
+
+              <span>
+                Survival:{" "}
+                <strong
+                  className={
+                    result.survived_day ? "text-emerald-300" : "text-red-400"
+                  }
+                >
+                  {result.survived_day ? "STABLE" : "FAILED"}
+                </strong>
+              </span>
+            </div>
+
+            {result.optimal_plan && (
+              <div className="border-t border-slate-700 pt-2">
+                <div className="text-[10px] text-slate-400">
+                  BACKEND OPTIMAL SCHEDULE
+                </div>
+
+                <div className="mt-1 space-y-1 text-emerald-300">
+                  {result.optimal_plan.map((task) => (
+                    <div key={task}>✓ {task}</div>
+                  ))}
+                </div>
+
+                <div className="mt-2 text-[10px] text-slate-400">
+                  Maximum possible HP gain: {result.max_possible_hp_gain ?? 0}
+                </div>
+              </div>
+            )}
+          </>
+        )
+      }
+    >
       {/* CREW STATUS */}
 
       <div className="grid grid-cols-2 gap-2">
@@ -148,7 +238,6 @@ export const FoodProductionGame = () => {
         <div className="grid grid-cols-2 gap-2">
           {ACTIVITIES.map((activity) => {
             const selected = selectedTasks.includes(activity.name);
-
             const duration = activity.end_hour - activity.start_hour;
 
             return (
@@ -207,107 +296,6 @@ export const FoodProductionGame = () => {
           })}
         </div>
       </div>
-
-      {/* CONTROLS */}
-
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-[10px] font-mono text-slate-400">
-          {selectedTasks.length} ACTIVITIES SELECTED
-        </span>
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleReset}
-            disabled={loading}
-            className="rounded border border-slate-600 px-3 py-1.5 text-[11px] text-slate-200 disabled:opacity-40"
-          >
-            RESET
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="rounded border border-emerald-400 bg-emerald-500/20 px-3 py-1.5 text-[11px] font-bold text-emerald-300 disabled:opacity-40"
-          >
-            {loading ? "SIMULATING..." : "RUN DAILY SCHEDULE"}
-          </button>
-        </div>
-      </div>
-
-      {error && (
-        <div
-          role="alert"
-          className="rounded border border-red-700 bg-red-950/40 p-2 text-xs text-red-300"
-        >
-          {error}
-        </div>
-      )}
-
-      {/* BACKEND RESULT */}
-
-      {result && (
-        <div className="space-y-2 rounded border border-slate-700 bg-slate-900 p-3 text-xs text-slate-200">
-          <div
-            className={`font-bold ${
-              result.status === "OK" ? "text-emerald-300" : "text-red-400"
-            }`}
-          >
-            STATUS: {result.status}
-          </div>
-
-          <p>{result.message}</p>
-
-          <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
-            <span>
-              HP gained:{" "}
-              <strong className="text-slate-100">
-                {result.hp_gained ?? 0}
-              </strong>
-            </span>
-
-            <span>
-              Daily drain:{" "}
-              <strong className="text-slate-100">
-                {result.daily_drain ?? 30}
-              </strong>
-            </span>
-
-            <span>
-              New crew HP:{" "}
-              <strong className="text-slate-100">{result.new_hp}/100</strong>
-            </span>
-
-            <span>
-              Survival:{" "}
-              <strong
-                className={
-                  result.survived_day ? "text-emerald-300" : "text-red-400"
-                }
-              >
-                {result.survived_day ? "STABLE" : "FAILED"}
-              </strong>
-            </span>
-          </div>
-
-          {result.optimal_plan && (
-            <div className="border-t border-slate-700 pt-2">
-              <div className="text-[10px] text-slate-400">
-                BACKEND OPTIMAL SCHEDULE
-              </div>
-
-              <div className="mt-1 space-y-1 text-emerald-300">
-                {result.optimal_plan.map((task) => (
-                  <div key={task}>✓ {task}</div>
-                ))}
-              </div>
-
-              <div className="mt-2 text-[10px] text-slate-400">
-                Maximum possible HP gain: {result.max_possible_hp_gain ?? 0}
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
+    </MinigameLayout>
   );
 };

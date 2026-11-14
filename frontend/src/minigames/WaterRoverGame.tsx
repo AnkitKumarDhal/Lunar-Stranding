@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { gameApi } from "../services/api";
+import { MinigameLayout } from "../components/MinigameLayout";
 import type { WaterRoverResult } from "../types/game";
 
 const MOCK_GRAPH: Record<string, Record<string, number>> = {
@@ -41,9 +42,7 @@ export const WaterRoverGame = () => {
   const routeComplete = lastNode === "IceDeposit";
 
   const handleNodeClick = (node: string) => {
-    if (MOCK_GRAPH[lastNode]?.[node] === undefined) {
-      return;
-    }
+    if (MOCK_GRAPH[lastNode]?.[node] === undefined) return;
 
     setPath((current) => [...current, node]);
     setResult(null);
@@ -62,6 +61,7 @@ export const WaterRoverGame = () => {
         path,
         100,
       );
+
       setResult(response);
     } catch (error) {
       setError(
@@ -89,17 +89,101 @@ export const WaterRoverGame = () => {
   };
 
   return (
-    <div className="flex h-full min-h-[380px] flex-col gap-3">
-      {/* HEADER */}
-
-      <div className="flex items-center justify-between text-[10px] font-mono tracking-wider text-slate-400">
-        <span>DIJKSTRA // ENERGY-WEIGHTED ROUTING</span>
+    <MinigameLayout
+      title="DIJKSTRA // ENERGY-WEIGHTED ROUTING"
+      headerRight={
         <span className="text-amber-300">
           START: BASE · TARGET: ICE DEPOSIT
         </span>
-      </div>
+      }
+      controls={
+        <>
+          <span className="min-w-0 flex-1 break-words text-cyan-300">
+            ROUTE: {path.join(" → ")}
+          </span>
 
-      {/* GRAPH */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleUndo}
+              disabled={path.length <= 1 || loading}
+              className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
+            >
+              UNDO
+            </button>
+
+            <button
+              onClick={handleReset}
+              disabled={loading}
+              className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
+            >
+              RESET
+            </button>
+
+            <button
+              onClick={handleSubmit}
+              disabled={!routeComplete || loading}
+              className="rounded border border-amber-400 bg-amber-500/20 px-3 py-1.5 font-bold text-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {loading ? "EVALUATING..." : "TRANSMIT ROUTE"}
+            </button>
+          </div>
+        </>
+      }
+      hint={
+        !routeComplete
+          ? "Select connected nodes until the route reaches ICE DEPOSIT."
+          : undefined
+      }
+      error={error}
+      result={
+        result && (
+          <>
+            <div className="font-bold text-amber-300">
+              STATUS: {result.status}
+            </div>
+
+            <p>{result.message}</p>
+
+            <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-400">
+              <span>
+                Route energy:{" "}
+                <strong className="text-slate-100">
+                  {result.player_cost} kWh
+                </strong>
+              </span>
+
+              <span>
+                Optimal energy:{" "}
+                <strong className="text-slate-100">
+                  {result.optimal_cost} kWh
+                </strong>
+              </span>
+
+              <span>
+                Efficiency:{" "}
+                <strong className="text-slate-100">
+                  {result.efficiency_percentage}%
+                </strong>
+              </span>
+
+              <span>
+                Battery remaining:{" "}
+                <strong className="text-slate-100">
+                  {result.remaining_battery} kWh
+                </strong>
+              </span>
+            </div>
+
+            {result.optimal_path.length > 0 && (
+              <p className="pt-1 text-[10px] text-cyan-300">
+                OPTIMAL: {result.optimal_path.join(" → ")}
+              </p>
+            )}
+          </>
+        )
+      }
+    >
+      {/* GAME GRAPH */}
 
       <div className="min-h-[230px] flex-1 rounded border border-slate-700 bg-slate-900 p-2">
         <svg
@@ -179,103 +263,6 @@ export const WaterRoverGame = () => {
           })}
         </svg>
       </div>
-
-      {/* ROUTE AND CONTROLS */}
-
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-        <span className="min-w-0 flex-1 break-words text-cyan-300">
-          ROUTE: {path.join(" → ")}
-        </span>
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleUndo}
-            disabled={path.length <= 1 || loading}
-            className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
-          >
-            UNDO
-          </button>
-
-          <button
-            onClick={handleReset}
-            disabled={loading}
-            className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
-          >
-            RESET
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            disabled={!routeComplete || loading}
-            className="rounded border border-amber-400 bg-amber-500/20 px-3 py-1.5 font-bold text-amber-300 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {loading ? "EVALUATING..." : "TRANSMIT ROUTE"}
-          </button>
-        </div>
-      </div>
-
-      {!routeComplete && (
-        <p className="text-[10px] text-slate-400">
-          Select connected nodes until the route reaches ICE DEPOSIT.
-        </p>
-      )}
-
-      {error && (
-        <div
-          role="alert"
-          className="rounded border border-red-700 bg-red-950/40 p-2 text-xs text-red-300"
-        >
-          {error}
-        </div>
-      )}
-
-      {/* BACKEND RESULT */}
-
-      {result && (
-        <div className="space-y-1 rounded border border-slate-700 bg-slate-900 p-3 text-xs text-slate-200">
-          <div className="font-bold text-amber-300">
-            STATUS: {result.status}
-          </div>
-
-          <p>{result.message}</p>
-
-          <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-400">
-            <span>
-              Route energy:{" "}
-              <strong className="text-slate-100">
-                {result.player_cost} kWh
-              </strong>
-            </span>
-
-            <span>
-              Optimal energy:{" "}
-              <strong className="text-slate-100">
-                {result.optimal_cost} kWh
-              </strong>
-            </span>
-
-            <span>
-              Efficiency:{" "}
-              <strong className="text-slate-100">
-                {result.efficiency_percentage}%
-              </strong>
-            </span>
-
-            <span>
-              Battery remaining:{" "}
-              <strong className="text-slate-100">
-                {result.remaining_battery} kWh
-              </strong>
-            </span>
-          </div>
-
-          {result.optimal_path.length > 0 && (
-            <p className="pt-1 text-[10px] text-cyan-300">
-              OPTIMAL: {result.optimal_path.join(" → ")}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+    </MinigameLayout>
   );
 };

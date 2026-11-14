@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { gameApi } from "../services/api";
+import { MinigameLayout } from "../components/MinigameLayout";
 import type { CraterTraverseResult } from "../types/game";
 
 const MOCK_GRAPH: Record<string, string[]> = {
@@ -41,9 +42,7 @@ export const CraterTraverseGame = () => {
   const totalNodes = NODES.length;
 
   const handleNodeClick = (node: string) => {
-    if (!MOCK_GRAPH[lastNode]?.includes(node)) {
-      return;
-    }
+    if (!MOCK_GRAPH[lastNode]?.includes(node)) return;
 
     setPath((current) => [...current, node]);
     setResult(null);
@@ -58,7 +57,6 @@ export const CraterTraverseGame = () => {
 
     try {
       const response = await gameApi.submitCraterTraverse(MOCK_GRAPH, path);
-
       setResult(response);
     } catch (error) {
       setError(
@@ -86,17 +84,109 @@ export const CraterTraverseGame = () => {
   };
 
   return (
-    <div className="flex h-full min-h-[380px] flex-col gap-3">
-      {/* HEADER */}
-
-      <div className="flex items-center justify-between gap-2 text-[10px] font-mono tracking-wider text-slate-400">
-        <span>BFS // VISIT ALL CRATERS</span>
+    <MinigameLayout
+      title="BFS // VISIT ALL CRATERS"
+      headerRight={
         <span className="text-cyan-300">
           VISITED: {visitedCount}/{totalNodes}
         </span>
-      </div>
+      }
+      controls={
+        <>
+          <span className="min-w-0 flex-1 break-words text-cyan-300">
+            STEPS: {path.length - 1}
+            {" · "}
+            CURRENT: {NODES.find((node) => node.id === lastNode)?.label}
+          </span>
 
-      {/* GRAPH */}
+          <div className="flex gap-2">
+            <button
+              onClick={handleUndo}
+              disabled={path.length <= 1 || loading}
+              className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
+            >
+              UNDO
+            </button>
+
+            <button
+              onClick={handleReset}
+              disabled={loading}
+              className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
+            >
+              RESET
+            </button>
+
+            <button
+              onClick={handleSubmit}
+              disabled={loading}
+              className="rounded border border-cyan-400 bg-cyan-500/20 px-3 py-1.5 font-bold text-cyan-300 disabled:opacity-40"
+            >
+              {loading ? "EVALUATING..." : "SUBMIT TRAVERSAL"}
+            </button>
+          </div>
+        </>
+      }
+      hint={
+        visitedCount < totalNodes
+          ? "Visit all six craters. You may revisit a crater when the route requires it."
+          : undefined
+      }
+      error={error}
+      result={
+        result && (
+          <>
+            <div className="font-bold text-cyan-300">
+              STATUS: {result.status}
+            </div>
+
+            <p>{result.message}</p>
+
+            <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-400">
+              <span>
+                Visited:{" "}
+                <strong className="text-slate-100">
+                  {result.craters_visited_count}/{result.total_craters}
+                </strong>
+              </span>
+
+              <span>
+                Steps:{" "}
+                <strong className="text-slate-100">
+                  {result.player_steps}
+                </strong>
+              </span>
+
+              <span>
+                Minimum steps:{" "}
+                <strong className="text-slate-100">
+                  {result.minimum_steps_required ?? "—"}
+                </strong>
+              </span>
+
+              <span>
+                Efficiency:{" "}
+                <strong className="text-slate-100">
+                  {result.efficiency_percentage}%
+                </strong>
+              </span>
+            </div>
+
+            {result.unvisited_craters.length > 0 && (
+              <p className="pt-1 text-[10px] text-amber-300">
+                NOT VISITED: {result.unvisited_craters.join(", ")}
+              </p>
+            )}
+
+            {result.optimal_path.length > 0 && (
+              <p className="pt-1 text-[10px] text-cyan-300">
+                OPTIMAL ROUTE: {result.optimal_path.join(" → ")}
+              </p>
+            )}
+          </>
+        )
+      }
+    >
+      {/* GAME GRAPH */}
 
       <div className="min-h-[230px] flex-1 rounded border border-slate-700 bg-slate-900 p-2">
         <svg
@@ -165,108 +255,6 @@ export const CraterTraverseGame = () => {
           })}
         </svg>
       </div>
-
-      {/* CONTROLS */}
-
-      <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-mono">
-        <span className="min-w-0 flex-1 break-words text-cyan-300">
-          STEPS: {path.length - 1}
-          {" · "}
-          CURRENT: {NODES.find((node) => node.id === lastNode)?.label}
-        </span>
-
-        <div className="flex gap-2">
-          <button
-            onClick={handleUndo}
-            disabled={path.length <= 1 || loading}
-            className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
-          >
-            UNDO
-          </button>
-
-          <button
-            onClick={handleReset}
-            disabled={loading}
-            className="rounded border border-slate-600 px-3 py-1.5 text-slate-200 disabled:opacity-40"
-          >
-            RESET
-          </button>
-
-          <button
-            onClick={handleSubmit}
-            disabled={loading}
-            className="rounded border border-cyan-400 bg-cyan-500/20 px-3 py-1.5 font-bold text-cyan-300 disabled:opacity-40"
-          >
-            {loading ? "EVALUATING..." : "SUBMIT TRAVERSAL"}
-          </button>
-        </div>
-      </div>
-
-      {visitedCount < totalNodes && (
-        <p className="text-[10px] text-slate-400">
-          Visit all six craters. You may revisit a crater when the route
-          requires it.
-        </p>
-      )}
-
-      {error && (
-        <div
-          role="alert"
-          className="rounded border border-red-700 bg-red-950/40 p-2 text-xs text-red-300"
-        >
-          {error}
-        </div>
-      )}
-
-      {/* BACKEND RESULT */}
-
-      {result && (
-        <div className="space-y-1 rounded border border-slate-700 bg-slate-900 p-3 text-xs text-slate-200">
-          <div className="font-bold text-cyan-300">STATUS: {result.status}</div>
-
-          <p>{result.message}</p>
-
-          <div className="grid grid-cols-2 gap-2 pt-1 text-[11px] text-slate-400">
-            <span>
-              Visited:{" "}
-              <strong className="text-slate-100">
-                {result.craters_visited_count}/{result.total_craters}
-              </strong>
-            </span>
-
-            <span>
-              Steps:{" "}
-              <strong className="text-slate-100">{result.player_steps}</strong>
-            </span>
-
-            <span>
-              Minimum steps:{" "}
-              <strong className="text-slate-100">
-                {result.minimum_steps_required ?? "—"}
-              </strong>
-            </span>
-
-            <span>
-              Efficiency:{" "}
-              <strong className="text-slate-100">
-                {result.efficiency_percentage}%
-              </strong>
-            </span>
-          </div>
-
-          {result.unvisited_craters.length > 0 && (
-            <p className="pt-1 text-[10px] text-amber-300">
-              NOT VISITED: {result.unvisited_craters.join(", ")}
-            </p>
-          )}
-
-          {result.optimal_path.length > 0 && (
-            <p className="pt-1 text-[10px] text-cyan-300">
-              OPTIMAL ROUTE: {result.optimal_path.join(" → ")}
-            </p>
-          )}
-        </div>
-      )}
-    </div>
+    </MinigameLayout>
   );
 };
