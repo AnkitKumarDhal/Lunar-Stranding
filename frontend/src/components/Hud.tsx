@@ -1,4 +1,3 @@
-// src/components/Hud.tsx
 import {
   Battery,
   Activity,

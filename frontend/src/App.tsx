@@ -1,10 +1,8 @@
 import { useState } from "react";
-
 import Hud, { DailyRoutinePanel } from "./components/Hud";
 import { MapBox } from "./components/MapBoxes";
 import { TacticalTabletModal } from "./components/TacticalTabletModal";
 import { HazardInterruptModal } from "./components/HazardInterruptModal";
-
 import { CraterTraverseGame } from "./minigames/CreateTraverseGame";
 import { WaterRoverGame } from "./minigames/WaterRoverGame";
 
@@ -14,48 +12,37 @@ import type {
   HazardPayload,
 } from "./types/game";
 
-const FACILITY_META: Record<
-  FacilityType,
+const FACILITY_META: Record<FacilityType, { title: string; subtitle: string }> =
   {
-    title: string;
-    subtitle: string;
-  }
-> = {
-  solar: {
-    title: "SOLAR MICROGRID ARRAY",
-    subtitle: "PRIM'S MST // CABLE ROUTING & MAST CALIBRATION",
-  },
-
-  water_rover: {
-    title: "WATER EXTRACTION ROVER",
-    subtitle: "DIJKSTRA // LEAST-ENERGY CRATER SLOPE NAVIGATION",
-  },
-
-  mining_rover: {
-    title: "PRESSURIZED MINING ROVER",
-    subtitle: "BELLMAN-FORD & 0/1 KNAPSACK // EXCAVATION & CARGO",
-  },
-
-  crater_sensors: {
-    title: "CRATER PERIMETER SENSORS",
-    subtitle: "BREADTH-FIRST SEARCH // VISIT EVERY CRATER",
-  },
-
-  radio: {
-    title: "DEEP SPACE COMMS DISH",
-    subtitle: "RABIN-KARP & HUFFMAN // SIGNAL LOCK & COMPRESSION",
-  },
-
-  greenhouse: {
-    title: "HYDROPONICS GREENHOUSE",
-    subtitle: "ACTIVITY SELECTION // NON-OVERLAPPING LED SCHEDULE",
-  },
-
-  garage: {
-    title: "ROVER SERVICING BAY",
-    subtitle: "ASSEMBLY LINE SCHEDULING // DIAGNOSTICS & REPAIR",
-  },
-};
+    solar: {
+      title: "SOLAR MICROGRID ARRAY",
+      subtitle: "PRIM'S MST // CABLE ROUTING & MAST CALIBRATION",
+    },
+    water_rover: {
+      title: "WATER EXTRACTION ROVER",
+      subtitle: "DIJKSTRA // LEAST-ENERGY CRATER SLOPE NAVIGATION",
+    },
+    mining_rover: {
+      title: "PRESSURIZED MINING ROVER",
+      subtitle: "BELLMAN-FORD & 0/1 KNAPSACK // EXCAVATION & CARGO",
+    },
+    crater_sensors: {
+      title: "CRATER PERIMETER SENSORS",
+      subtitle: "BREADTH-FIRST SEARCH // VISIT EVERY CRATER",
+    },
+    radio: {
+      title: "DEEP SPACE COMMS DISH",
+      subtitle: "RABIN-KARP & HUFFMAN // SIGNAL LOCK & COMPRESSION",
+    },
+    greenhouse: {
+      title: "HYDROPONICS GREENHOUSE",
+      subtitle: "ACTIVITY SELECTION // NON-OVERLAPPING LED SCHEDULE",
+    },
+    garage: {
+      title: "ROVER SERVICING BAY",
+      subtitle: "ASSEMBLY LINE SCHEDULING // DIAGNOSTICS & REPAIR",
+    },
+  };
 
 export default function App() {
   const [activeFacility, setActiveFacility] = useState<FacilityType | null>(
@@ -72,10 +59,7 @@ export default function App() {
   const [activeHazard] = useState<HazardPayload | null>(null);
 
   const handleToggleDailyTask = (key: keyof DailyTasksState) => {
-    setDailyTasks((previous) => ({
-      ...previous,
-      [key]: true,
-    }));
+    setDailyTasks((previous) => ({ ...previous, [key]: true }));
   };
 
   const handleExecuteHazardAction = (actionId: string) => {
@@ -84,27 +68,11 @@ export default function App() {
   };
 
   return (
-    <div
-      className="
-        relative flex
-        h-screen w-screen
-        select-none
-        items-center justify-center
-        overflow-hidden
-        bg-black
-      "
-    >
+    <div className="relative flex h-screen w-screen select-none items-center justify-center overflow-hidden bg-black">
       {/* LUNAR MAP */}
 
       <div
-        className="
-          relative
-          bg-[url('/moon.png')]
-          bg-cover
-          bg-center
-          bg-no-repeat
-          shadow-[0_0_50px_rgba(6,182,212,0.15)]
-        "
+        className="relative bg-[url('/moon.png')] bg-cover bg-center bg-no-repeat shadow-[0_0_50px_rgba(6,182,212,0.15)]"
         style={{
           width: "min(100vw, 100vh * (16/9))",
           height: "min(100vh, 100vw * (9/16))",
@@ -112,7 +80,6 @@ export default function App() {
       >
         <div className="pointer-events-auto absolute inset-0 z-10">
           {/* SOLAR ARRAY */}
-
           <MapBox
             id="solar-array"
             type="solar"
@@ -122,9 +89,7 @@ export default function App() {
             accentColor="cyan"
             onClick={() => setActiveFacility("solar")}
           />
-
           {/* ROVER GARAGE */}
-
           <MapBox
             id="rover-garage"
             type="garage"
@@ -134,9 +99,7 @@ export default function App() {
             accentColor="cyan"
             onClick={() => setActiveFacility("garage")}
           />
-
           {/* CRATER SENSORS */}
-
           <MapBox
             id="crater-sensors"
             type="crater_sensors"
@@ -146,9 +109,7 @@ export default function App() {
             accentColor="cyan"
             onClick={() => setActiveFacility("crater_sensors")}
           />
-
           {/* RADIO DISH */}
-
           <MapBox
             id="radio-dish"
             type="radio"
@@ -158,9 +119,7 @@ export default function App() {
             accentColor="cyan"
             onClick={() => setActiveFacility("radio")}
           />
-
           {/* WATER ROVER */}
-
           <MapBox
             id="water-rover"
             type="water_rover"
@@ -171,9 +130,7 @@ export default function App() {
             statusBadge="READY"
             onClick={() => setActiveFacility("water_rover")}
           />
-
           {/* MINING ROVER */}
-
           <MapBox
             id="mining-rover"
             type="mining_rover"
@@ -183,9 +140,7 @@ export default function App() {
             accentColor="amber"
             onClick={() => setActiveFacility("mining_rover")}
           />
-
           {/* GREENHOUSE */}
-
           <MapBox
             id="greenhouse"
             type="greenhouse"

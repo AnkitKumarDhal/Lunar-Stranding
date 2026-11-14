@@ -1,4 +1,3 @@
-// src/components/MapBoxes.tsx
 import React from "react";
 import { Radio, Sprout, Wrench, Radar } from "lucide-react";
 import type { FacilityType } from "../types/game";

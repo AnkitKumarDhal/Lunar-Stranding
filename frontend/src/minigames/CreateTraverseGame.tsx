@@ -1,7 +1,5 @@
 import React, { useState } from "react";
-
 import { gameApi } from "../services/api";
-
 import type { CraterTraverseResult } from "../types/game";
 
 const MOCK_BFS_GRAPH: Record<string, string[]> = {
@@ -52,13 +50,10 @@ export const CraterTraverseGame: React.FC = () => {
   // Submit traversal to backend.
   const handleSubmit = async () => {
     if (loading) return;
-
     setLoading(true);
     setError(null);
-
     try {
       const response = await gameApi.submitCraterTraverse(MOCK_BFS_GRAPH, path);
-
       setResult(response);
     } catch (cause) {
       setError(
@@ -74,7 +69,6 @@ export const CraterTraverseGame: React.FC = () => {
   // Reset traversal.
   const reset = () => {
     setPath(["Crater_Alpha"]);
-
     setResult(null);
     setError(null);
   };
@@ -82,9 +76,7 @@ export const CraterTraverseGame: React.FC = () => {
   // Undo last movement.
   const undo = () => {
     if (path.length <= 1) return;
-
     setPath((current) => current.slice(0, -1));
-
     setResult(null);
     setError(null);
   };
@@ -141,9 +133,7 @@ export const CraterTraverseGame: React.FC = () => {
 
           {Object.entries(NODE_LAYOUT).map(([node, position]) => {
             const visited = path.includes(node);
-
             const current = lastNode === node;
-
             const adjacent = MOCK_BFS_GRAPH[lastNode]?.includes(node) ?? false;
 
             return (

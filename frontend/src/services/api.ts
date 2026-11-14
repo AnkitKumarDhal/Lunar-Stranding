@@ -17,7 +17,6 @@ async function request<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(options.headers);
-
   headers.set("Accept", "application/json");
 
   if (options.body && !headers.has("Content-Type")) {
@@ -31,10 +30,8 @@ async function request<T>(
 
   if (!response.ok) {
     let detail = `${response.status} ${response.statusText}`;
-
     try {
       const body: unknown = await response.json();
-
       if (body && typeof body === "object" && "detail" in body) {
         detail = String((body as { detail: unknown }).detail);
       } else {
@@ -42,7 +39,6 @@ async function request<T>(
       }
     } catch {
       const text = await response.text();
-
       if (text) {
         detail = text;
       }
@@ -55,7 +51,6 @@ async function request<T>(
 }
 
 // GREENHOUSE ACTIVITY TYPE
-
 export interface GreenhouseActivity {
   name: string;
   start_hour: number;
@@ -65,7 +60,6 @@ export interface GreenhouseActivity {
 }
 
 // SAMPLE TYPE
-
 export interface SampleItem {
   id: string;
   name: string;
@@ -74,10 +68,8 @@ export interface SampleItem {
 }
 
 // API METHODS
-
 export const gameApi = {
   // 1. WATER ROVER - DIJKSTRA
-
   submitWaterRoverPath: (
     graph: Record<string, Record<string, number>>,
     path: string[],
@@ -86,28 +78,17 @@ export const gameApi = {
   ) =>
     request<WaterRoverResult>("/minigames/water-rover", {
       method: "POST",
-
       body: JSON.stringify({
         graph,
-
         start_node: "Base",
         target_node: "IceDeposit",
-
         player_path: path,
-
         initial_battery: battery,
-
         session_id: sessionId,
       }),
     }),
 
   // 2. CRATER TRAVERSE - BFS
-
-  // The current backend evaluates a traversal
-  // that visits every crater.
-  //
-  // Therefore, target_node is intentionally omitted.
-
   submitCraterTraverse: (
     graph: Record<string, string[]>,
     path: string[],
@@ -115,20 +96,15 @@ export const gameApi = {
   ) =>
     request<CraterTraverseResult>("/minigames/crater-traverse", {
       method: "POST",
-
       body: JSON.stringify({
         graph,
-
         start_node: "Crater_Alpha",
-
         player_path: path,
-
         session_id: sessionId,
       }),
     }),
 
   // 3. FOOD PRODUCTION - ACTIVITY SCHEDULING
-
   submitFoodProduction: (
     activities: GreenhouseActivity[],
     selectedNames: string[],
@@ -137,20 +113,15 @@ export const gameApi = {
   ) =>
     request<FoodProductionResult>("/minigames/food-production", {
       method: "POST",
-
       body: JSON.stringify({
         available_tasks: activities,
-
         selected_tasks: selectedNames,
-
         current_hp: currentHp,
-
         session_id: sessionId,
       }),
     }),
 
   // 4. SAMPLE RETRIEVAL - 0/1 KNAPSACK
-
   submitSampleRetrieval: (
     samples: SampleItem[],
     selectedIds: string[],
@@ -159,38 +130,25 @@ export const gameApi = {
   ) =>
     request<SampleRetrievalResult>("/minigames/sample-retrieval", {
       method: "POST",
-
       body: JSON.stringify({
         bag_capacity: capacity,
-
         available_samples: samples,
-
         player_sample_ids: selectedIds,
-
         session_id: sessionId,
       }),
     }),
 
   // 5. SIGNAL MATCH - RABIN KARP
-
   submitSignalMatch: (signal: number[], pattern: number[]) =>
     request<SignalMatchResult>("/minigames/signal-match", {
       method: "POST",
-
-      body: JSON.stringify({
-        signal,
-        pattern,
-      }),
+      body: JSON.stringify({ signal, pattern }),
     }),
 
   // 6. SIGNAL TRANSMISSION - HUFFMAN
-
   submitSignalTransmission: (text: string) =>
     request<SignalTransmissionResult>("/minigames/signal-transmission", {
       method: "POST",
-
-      body: JSON.stringify({
-        text,
-      }),
+      body: JSON.stringify({ text }),
     }),
 };

@@ -1,4 +1,3 @@
-// src/components/HazardInterruptModal.tsx
 import React from "react";
 import { AlertTriangle, ShieldAlert, CheckCircle2 } from "lucide-react";
 import type { HazardPayload } from "../types/game";

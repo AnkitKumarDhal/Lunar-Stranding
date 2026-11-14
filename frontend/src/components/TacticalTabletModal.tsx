@@ -1,4 +1,3 @@
-// src/components/TacticalTabletModal.tsx
 import React from "react";
 import { X, Wifi } from "lucide-react";
 
