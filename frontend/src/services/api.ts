@@ -1,4 +1,5 @@
 // frontend/src/services/api.ts
+
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "/api";
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
@@ -13,19 +14,189 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+// --- TypeScript Interfaces for Minigame Responses & Requests ---
+
+// 1. Water Rover (Dijkstra)
+export interface WaterRoverResponse {
+  is_valid_path: boolean;
+  status: string;
+  optimal: {
+    path: string[];
+    cost: number;
+  };
+  optimal_path: string[];
+  optimal_cost: number;
+  player_path: string[];
+  player_cost: number;
+  excess_energy_spent: number;
+  efficiency: number;
+  efficiency_percentage: number;
+  remaining_battery: number;
+  message: string;
+}
+
+// 2. Crater Traverse (BFS)
+export interface CraterTraverseResponse {
+  is_valid_path: boolean;
+  status: string;
+  optimal: {
+    path: string[];
+    steps: number;
+    bfs_discovery_order: string[];
+  };
+  optimal_path: string[];
+  optimal_steps: number;
+  minimum_steps_required: number;
+  player_path: string[];
+  player_steps: number;
+  player_steps_taken: number;
+  all_craters_covered: boolean;
+  total_craters: number;
+  craters_visited_count: number;
+  unvisited_craters: string[];
+  efficiency_percentage: number;
+  step_efficiency_percentage: number;
+  message: string;
+}
+
+// 3. Solar Panels (Prim's MST)
+export interface SolarPanelsResponse {
+  is_valid_mst: boolean;
+  status: string;
+  optimal: {
+    mst_edges: (string | number)[][];
+    total_cost: number;
+    predecessor_map: Record<string, string | null>;
+  };
+  optimal_cost: number;
+  optimal_edges: (string | number)[][];
+  player_cost: number;
+  player_edges: string[][];
+  efficiency: number;
+  efficiency_percentage: number;
+  message: string;
+}
+
+// 4. Mining Rover (Bellman-Ford)
+export interface MiningRoverResponse {
+  is_valid_path: boolean;
+  status: string;
+  has_negative_cycle: boolean;
+  optimal: {
+    path: string[];
+    cost: number | string;
+    distances: Record<string, number | string>;
+    has_negative_cycle: boolean;
+  };
+  optimal_path: string[];
+  optimal_cost: number;
+  player_path: string[];
+  player_cost: number;
+  efficiency: number;
+  efficiency_percentage: number;
+  message: string;
+}
+
+// 5. Sample Retrieval (0/1 Knapsack)
+export interface SampleItem {
+  id: string;
+  name: string;
+  weight: number;
+  value: number;
+}
+
+export interface SampleRetrievalResponse {
+  bag_capacity: number;
+  optimal: {
+    max_value: number;
+    total_weight: number;
+    sample_ids: string[];
+  };
+  optimal_max_value: number;
+  optimal_total_weight: number;
+  optimal_sample_ids: string[];
+  player_total_value: number;
+  player_total_weight: number;
+  is_overweight: boolean;
+  efficiency: number;
+  efficiency_percentage: number;
+  reward_multiplier: number;
+  status: string;
+  message: string;
+}
+
+// 6. Food Production (Weighted Activity Selection)
+export interface GreenhouseTaskItem {
+  name: string;
+  start_hour: number;
+  end_hour: number;
+  power_kw: number;
+  hp_gain: number;
+}
+
+export interface FoodProductionResponse {
+  status: string;
+  is_valid_schedule: boolean;
+  optimal: {
+    max_hp_gain: number;
+    tasks: string[];
+  };
+  optimal_hp_gain: number;
+  optimal_tasks: string[];
+  player_hp_gain: number;
+  player_tasks: string[];
+  current_hp: number;
+  daily_drain: number;
+  final_hp: number;
+  survived_day: boolean;
+  peak_power_kw: number;
+  bus_limit_kw: number;
+  efficiency: number;
+  efficiency_percentage: number;
+  message: string;
+}
+
+// 7. Signal Match (Rabin-Karp)
+export interface SignalMatchResponse {
+  signal: string;
+  pattern: string;
+  pattern_found: boolean;
+  match_index: number;
+  status: string;
+  message: string;
+}
+
+// 8. Signal Transmission (Huffman Coding)
+export interface SignalTransmissionResponse {
+  original_text: string;
+  character_frequencies: Record<string, number>;
+  code_map: Record<string, string>;
+  encoded_signal: string;
+  original_length_bits: number;
+  encoded_length_bits: number;
+  compression_ratio_percentage: number;
+  decoded_text: string;
+  is_valid: boolean;
+  status: string;
+  message: string;
+}
+
+// --- API Service Object ---
 export const gameApi = {
   // 1. Water Rover (Dijkstra)
   submitWaterRoverPath: (
     graph: Record<string, Record<string, number>>,
     path: string[],
-    battery: number,
+    battery: number = 100.0,
+    startNode: string = "Base",
+    targetNode: string = "IceDeposit",
   ) =>
-    request<any>("/minigames/water-rover", {
+    request<WaterRoverResponse>("/minigames/water-rover", {
       method: "POST",
       body: JSON.stringify({
         graph,
-        start_node: "Base",
-        target_node: "IceDeposit",
+        start_node: startNode,
+        target_node: targetNode,
         player_path: path,
         initial_battery: battery,
         session_id: "default",
@@ -33,45 +204,62 @@ export const gameApi = {
     }),
 
   // 2. Crater Traverse (BFS)
-  submitCraterTraverse: (graph: Record<string, string[]>, path: string[]) =>
-    request<any>("/minigames/crater-traverse", {
+  submitCraterTraverse: (
+    graph: Record<string, string[]>,
+    path: string[],
+    startNode: string = "Crater_Alpha",
+  ) =>
+    request<CraterTraverseResponse>("/minigames/crater-traverse", {
       method: "POST",
       body: JSON.stringify({
         graph,
-        start_node: "Crater_Alpha",
-        target_node: "Crater_Zeta",
+        start_node: startNode,
         player_path: path,
         session_id: "default",
       }),
     }),
 
-  // 3. Food Production (Activity Selection)
-  submitFoodProduction: (
-    activities: {
-      name: string;
-      start_hour: number;
-      end_hour: number;
-      power_kw: number;
-      hp_gain: number;
-    }[],
-    selectedNames: string[],
+  // 3. Solar Panels (Prim's MST)
+  submitSolarPanels: (
+    graph: Record<string, Record<string, number>>,
+    playerEdges: string[][],
+    startNode: string = "A",
   ) =>
-    request<any>("/minigames/food-production", {
+    request<SolarPanelsResponse>("/minigames/solar-panels", {
       method: "POST",
       body: JSON.stringify({
-        available_tasks: activities,
-        selected_tasks: selectedNames,
-        current_hp: 100,
-      }), // Note: Modify based on exact Pydantic model if they push one later
+        graph,
+        start_node: startNode,
+        player_edges: playerEdges,
+        session_id: "default",
+      }),
     }),
 
-  // 4. Sample Retrieval (0/1 Knapsack)
-  submitSampleRetrieval: (
-    samples: { id: string; name: string; weight: number; value: number }[],
-    selectedIds: string[],
-    capacity: number,
+  // 4. Mining Rover (Bellman-Ford)
+  submitMiningRover: (
+    edges: (string | number)[][],
+    path: string[],
+    startNode: string = "Base",
+    targetNode: string = "Excavation",
   ) =>
-    request<any>("/minigames/sample-retrieval", {
+    request<MiningRoverResponse>("/minigames/mining-rover", {
+      method: "POST",
+      body: JSON.stringify({
+        edges,
+        start_node: startNode,
+        target_node: targetNode,
+        player_path: path,
+        session_id: "default",
+      }),
+    }),
+
+  // 5. Sample Retrieval (0/1 Knapsack)
+  submitSampleRetrieval: (
+    samples: SampleItem[],
+    selectedIds: string[],
+    capacity: number = 15,
+  ) =>
+    request<SampleRetrievalResponse>("/minigames/sample-retrieval", {
       method: "POST",
       body: JSON.stringify({
         bag_capacity: capacity,
@@ -81,10 +269,44 @@ export const gameApi = {
       }),
     }),
 
-  // 5. Signal Transmission (Huffman)
-  submitSignalTransmission: (text: string) =>
-    request<any>("/minigames/signal-transmission", {
+  // 6. Food Production (Weighted Activity Selection)
+  submitFoodProduction: (
+    tasks: GreenhouseTaskItem[],
+    selectedNames: string[],
+    currentHp: number = 100,
+    dailyDrain: number = 30,
+    busLimitKw: number = 5.0,
+  ) =>
+    request<FoodProductionResponse>("/minigames/food-production", {
       method: "POST",
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({
+        available_tasks: tasks,
+        selected_tasks: selectedNames,
+        current_hp: currentHp,
+        daily_hp_drain: dailyDrain,
+        bus_limit_kw: busLimitKw,
+        session_id: "default",
+      }),
+    }),
+
+  // 7. Signal Match (Rabin-Karp)
+  submitSignalMatch: (signal: string, pattern: string) =>
+    request<SignalMatchResponse>("/minigames/signal-match", {
+      method: "POST",
+      body: JSON.stringify({
+        signal,
+        pattern,
+        session_id: "default",
+      }),
+    }),
+
+  // 8. Signal Transmission (Huffman Coding)
+  submitSignalTransmission: (text: string) =>
+    request<SignalTransmissionResponse>("/minigames/signal-transmission", {
+      method: "POST",
+      body: JSON.stringify({
+        text,
+        session_id: "default",
+      }),
     }),
 };

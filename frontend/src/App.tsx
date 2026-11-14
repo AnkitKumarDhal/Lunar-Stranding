@@ -10,6 +10,14 @@ import type {
   HazardPayload,
 } from "./types/game";
 
+// Mini-game components
+import { WaterRoverGame } from "./minigames/WaterRoverGame";
+import { CraterTraverseGame } from "./minigames/CraterTraverseGame";
+import { SolarPanelsGame } from "./minigames/SolarPanelsGame";
+import { MiningRoverGame } from "./minigames/MiningRoverGame";
+import { FoodProductionGame } from "./minigames/FoodProductionGame";
+import { RadioGame } from "./minigames/RadioGame";
+
 const FACILITY_META: Record<FacilityType, { title: string; subtitle: string }> =
   {
     solar: {
@@ -159,45 +167,26 @@ export default function App() {
           subtitle={FACILITY_META[activeFacility].subtitle}
           onClose={() => setActiveFacility(null)}
         >
-          {activeFacility === "water_rover" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ WATER ROVER (DIJKSTRA) MINIGAME VIEWPORT ]
-            </div>
-          )}
+          {activeFacility === "water_rover" && <WaterRoverGame />}
 
-          {activeFacility === "solar" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ SOLAR MICROGRID (PRIM&apos;S MST) MINIGAME VIEWPORT ]
-            </div>
-          )}
+          {activeFacility === "solar" && <SolarPanelsGame />}
 
-          {activeFacility === "crater_sensors" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ CRATER SENSORS (BFS) MINIGAME VIEWPORT ]
-            </div>
-          )}
+          {activeFacility === "crater_sensors" && <CraterTraverseGame />}
 
-          {activeFacility === "mining_rover" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ MINING ROVER (BELLMAN-FORD + KNAPSACK) MINIGAME VIEWPORT ]
-            </div>
-          )}
+          {activeFacility === "mining_rover" && <MiningRoverGame />}
 
-          {activeFacility === "radio" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ RADIO COMMS (RABIN-KARP + HUFFMAN) MINIGAME VIEWPORT ]
-            </div>
-          )}
+          {activeFacility === "radio" && <RadioGame />}
 
-          {activeFacility === "greenhouse" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ GREENHOUSE LED SCHEDULE (ACTIVITY SELECTION) MINIGAME VIEWPORT ]
-            </div>
-          )}
+          {activeFacility === "greenhouse" && <FoodProductionGame />}
 
           {activeFacility === "garage" && (
-            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs">
-              [ ROVER SERVICING (ASSEMBLY LINE) MINIGAME VIEWPORT ]
+            <div className="flex flex-col items-center justify-center h-80 text-slate-400 text-xs space-y-3">
+              <span className="text-amber-400 font-bold tracking-widest text-sm">
+                [ FACILITY OFFLINE // UNDER MAINTENANCE ]
+              </span>
+              <p className="text-slate-400 max-w-md text-center leading-relaxed">
+                Rover Servicing Bay requires Assembly Line Scheduling calibration. This maintenance sector is coming soon in the next mission update.
+              </p>
             </div>
           )}
         </TacticalTabletModal>
