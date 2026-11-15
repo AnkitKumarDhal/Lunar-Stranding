@@ -484,8 +484,23 @@ export default function App() {
     setHealth(100);
   };
 
+  const resetGameForTesting = () => {
+    if (!import.meta.env.DEV) return;
+
+    const confirmed = window.confirm(
+      "RESET THE ENTIRE GAME?\n\nThis will erase your saved story progress, unlocked facilities and current run. The game will restart from Day 1.",
+    );
+
+    if (!confirmed) return;
+
+    localStorage.removeItem(STORAGE_KEY);
+
+    // Reloading also resets health, active minigames and transient UI state.
+    window.location.reload();
+  };
+
   return (
-    <div className="relative flex h-screen w-screen select-none items-center justify-center overflow-hidden bg-black">
+    <div className="ui-readable relative flex h-screen w-screen select-none items-center justify-center overflow-hidden bg-black">
       <div
         className="relative bg-[url('/moon.png')] bg-cover bg-center bg-no-repeat shadow-[0_0_50px_rgba(6,182,212,0.15)]"
         style={{
@@ -584,6 +599,7 @@ export default function App() {
         health={health}
         day={story.day}
         missionStatus={missionStatus}
+        onResetGame={resetGameForTesting}
       />
 
       <DailyRoutinePanel

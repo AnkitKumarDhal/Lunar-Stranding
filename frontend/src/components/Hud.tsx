@@ -11,6 +11,8 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { DailyTasksState } from "../types/game";
+import { useState } from "react";
+import { Code2, RotateCcw } from "lucide-react";
 
 interface DailyRoutinePanelProps {
   visible: boolean;
@@ -144,9 +146,17 @@ interface HudProps {
   health: number;
   day: number;
   missionStatus: string;
+  onResetGame: () => void;
 }
 
-export default function Hud({ power, health, day, missionStatus }: HudProps) {
+export default function Hud({
+  power,
+  health,
+  day,
+  missionStatus,
+  onResetGame,
+}: HudProps) {
+  const [devToolsOpen, setDevToolsOpen] = useState(false);
   const panelBase =
     "border border-cyan-800/60 bg-slate-950/75 font-mono shadow-[0_0_15px_rgba(0,0,0,0.8)] backdrop-blur-md pointer-events-auto";
 
@@ -232,6 +242,50 @@ export default function Hud({ power, health, day, missionStatus }: HudProps) {
           <span>{missionStatus}</span>
         </div>
       </div>
+      {import.meta.env.DEV && (
+        <div className="pointer-events-auto absolute bottom-5 left-6 z-40 font-mono">
+          {devToolsOpen && (
+            <div className="mb-2 w-72 border border-amber-500/50 bg-slate-950/95 p-4 shadow-[0_0_30px_rgba(0,0,0,0.8)] backdrop-blur-xl">
+              <div className="mb-3 flex items-center justify-between border-b border-amber-900/60 pb-2">
+                <h2 className="text-sm font-bold tracking-widest text-amber-300">
+                  DEVELOPER CONTROLS
+                </h2>
+
+                <span className="text-xs text-emerald-400">LOCAL ONLY</span>
+              </div>
+
+              <p className="mb-4 text-xs leading-5 text-slate-400">
+                Testing utilities. These controls are available only in
+                development mode.
+              </p>
+
+              <button
+                type="button"
+                onClick={onResetGame}
+                className="flex w-full items-center justify-center gap-2 border border-rose-500/60 bg-rose-950/40 px-3 py-3 text-xs font-bold tracking-widest text-rose-300 transition-colors hover:border-rose-400 hover:bg-rose-950/70"
+              >
+                <RotateCcw size={15} />
+                RESET ENTIRE GAME
+              </button>
+
+              <p className="mt-2 text-[10px] leading-4 text-slate-500">
+                Clears the saved run and restarts from Day 1.
+              </p>
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={() => setDevToolsOpen((open) => !open)}
+            aria-expanded={devToolsOpen}
+            className="flex items-center gap-2 border border-amber-500/50 bg-slate-950/90 px-4 py-3 text-xs font-bold tracking-widest text-amber-300 shadow-[0_0_18px_rgba(251,191,36,0.12)] backdrop-blur transition-colors hover:border-amber-400 hover:bg-amber-950/50"
+          >
+            <Code2 size={15} />
+            DEV MODE
+            <span className="text-slate-500">{devToolsOpen ? "−" : "+"}</span>
+          </button>
+        </div>
+      )}
     </div>
   );
 }
