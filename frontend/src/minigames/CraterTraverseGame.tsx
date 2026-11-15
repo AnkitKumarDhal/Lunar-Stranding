@@ -1,13 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import { gameApi, type CraterTraverseGameData, type CraterTraverseResponse } from "@/services/api";
+import {
+  gameApi,
+  type CraterTraverseGameData,
+  type CraterTraverseResponse,
+} from "@/services/api";
 
 interface CraterTraverseGameProps {
   onPowerConsumed: (amount: number) => void;
+  onCompleted?: () => void;
 }
 
 type NodePosition = { x: number; y: number; label: string };
 
-export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps) => {
+export const CraterTraverseGame = ({
+  onPowerConsumed,
+  onCompleted,
+}: CraterTraverseGameProps) => {
   const [game, setGame] = useState<CraterTraverseGameData | null>(null);
   const [path, setPath] = useState<string[]>([]);
   const [result, setResult] = useState<CraterTraverseResponse | null>(null);
@@ -32,7 +40,9 @@ export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps)
   });
 
   const edges = Object.entries(graph).flatMap(([from, neighbors]) =>
-    neighbors.filter((to) => from < to).map((to) => [from, to] as [string, string]),
+    neighbors
+      .filter((to) => from < to)
+      .map((to) => [from, to] as [string, string]),
   );
 
   const loadNewGame = useCallback(async () => {
@@ -45,7 +55,9 @@ export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps)
       setGame(nextGame);
       setPath([nextGame.start_node]);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Failed to generate crater map");
+      setError(
+        err instanceof Error ? err.message : "Failed to generate crater map",
+      );
     } finally {
       setLoading(false);
     }
@@ -77,18 +89,37 @@ export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps)
     setLoading(true);
     setError(null);
     try {
-      const response = await gameApi.submitCraterTraverse(game.graph, path, game.start_node);
+      const response = await gameApi.submitCraterTraverse(
+        game.graph,
+        path,
+        game.start_node,
+      );
       setResult(response);
       onPowerConsumed(response.power_consumed);
+      if (
+        response.status === "OPTIMAL_TRAVERSAL" ||
+        response.status === "SUBOPTIMAL_TRAVERSAL"
+      ) {
+        onCompleted?.();
+      }
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Network traversal submission failed");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Network traversal submission failed",
+      );
     } finally {
       setLoading(false);
     }
   };
 
   const isEdgeTraversed = (from: string, to: string) =>
-    path.some((node, index) => index < path.length - 1 && ((node === from && path[index + 1] === to) || (node === to && path[index + 1] === from)));
+    path.some(
+      (node, index) =>
+        index < path.length - 1 &&
+        ((node === from && path[index + 1] === to) ||
+          (node === to && path[index + 1] === from)),
+    );
 
   const displayNode = (node: string) => nodePositions[node]?.label ?? node;
 
@@ -96,11 +127,18 @@ export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps)
     <div className="flex flex-col h-full space-y-4">
       <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
         <div>
-          <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Deploy perimeter sensors to visit{" "}
-          <span className="text-slate-200 font-bold">all {nodes.length || 10} craters</span> in the minimum number of steps (BFS).
+          <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Deploy
+          perimeter sensors to visit{" "}
+          <span className="text-slate-200 font-bold">
+            all {nodes.length || 10} craters
+          </span>{" "}
+          in the minimum number of steps (BFS).
         </div>
         <div className="text-[11px] text-slate-400 font-mono">
-          Sensors Online: <span className="text-cyan-400 font-bold">{visitedNodes.size} / {nodes.length || 10}</span>
+          Sensors Online:{" "}
+          <span className="text-cyan-400 font-bold">
+            {visitedNodes.size} / {nodes.length || 10}
+          </span>
         </div>
       </div>
 
@@ -140,12 +178,29 @@ export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps)
                 >
                   <circle
                     r={isHead ? "16" : "13"}
-                    fill={isHead ? "#0369a1" : isVisited ? "#083344" : "#0f172a"}
-                    stroke={isHead ? "#38bdf8" : isVisited ? "#22d3ee" : isNeighbor ? "#a5f3fc" : "#475569"}
+                    fill={
+                      isHead ? "#0369a1" : isVisited ? "#083344" : "#0f172a"
+                    }
+                    stroke={
+                      isHead
+                        ? "#38bdf8"
+                        : isVisited
+                          ? "#22d3ee"
+                          : isNeighbor
+                            ? "#a5f3fc"
+                            : "#475569"
+                    }
                     strokeWidth={isHead ? "3" : isVisited ? "2.5" : "1.5"}
                   />
                   {isNeighbor && (
-                    <circle r="19" fill="none" stroke="#22d3ee" strokeWidth="1" strokeDasharray="2" className="animate-pulse" />
+                    <circle
+                      r="19"
+                      fill="none"
+                      stroke="#22d3ee"
+                      strokeWidth="1"
+                      strokeDasharray="2"
+                      className="animate-pulse"
+                    />
                   )}
                   <text
                     y="27"
@@ -163,64 +218,103 @@ export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps)
             })}
           </svg>
         ) : (
-          <span className="text-xs text-slate-400">{error ?? "Generating crater map..."}</span>
+          <span className="text-xs text-slate-400">
+            {error ?? "Generating crater map..."}
+          </span>
         )}
       </div>
 
       <div className="flex flex-wrap justify-between items-center gap-2 bg-slate-900/60 p-2.5 rounded border border-slate-800">
         <div className="flex items-center gap-3 min-w-0">
-          <span className="text-[11px] text-slate-400 uppercase font-semibold">Traverse Hops:</span>
-          <span className="text-xs text-cyan-400 font-bold font-mono">{Math.max(0, path.length - 1)} steps</span>
+          <span className="text-[11px] text-slate-400 uppercase font-semibold">
+            Traverse Hops:
+          </span>
+          <span className="text-xs text-cyan-400 font-bold font-mono">
+            {Math.max(0, path.length - 1)} steps
+          </span>
           <span className="text-[10px] text-slate-500 font-mono truncate">
             ({path.map(displayNode).join(" → ")})
           </span>
         </div>
 
         <div className="flex items-center gap-2">
-          <button onClick={() => void loadNewGame()} disabled={loading} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold rounded border border-slate-600 disabled:opacity-40">
+          <button
+            onClick={() => void loadNewGame()}
+            disabled={loading}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold rounded border border-slate-600 disabled:opacity-40"
+          >
             NEW MAP
           </button>
-          <button onClick={handleReset} disabled={loading || !game} className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded border border-slate-600 disabled:opacity-40">
+          <button
+            onClick={handleReset}
+            disabled={loading || !game}
+            className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded border border-slate-600 disabled:opacity-40"
+          >
             RESET
           </button>
-          <button onClick={handleSubmit} disabled={loading || path.length < 2 || !!result} className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed">
+          <button
+            onClick={handleSubmit}
+            disabled={loading || path.length < 2 || !!result}
+            className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
+          >
             {loading ? "CHECKING BFS..." : "ESTABLISH SENSOR NETWORK"}
           </button>
         </div>
       </div>
 
-      {error && <div className="text-xs text-rose-400 p-2 border border-rose-500/40 bg-rose-950/40 rounded">{error}</div>}
+      {error && (
+        <div className="text-xs text-rose-400 p-2 border border-rose-500/40 bg-rose-950/40 rounded">
+          {error}
+        </div>
+      )}
 
       {result && (
         <div className="text-xs p-3 border border-slate-700 bg-slate-900/95 rounded space-y-2">
           <div className="flex items-center justify-between">
-            <span className={`font-bold px-2 py-0.5 rounded text-[10px] tracking-wider ${result.status === "OPTIMAL_TRAVERSAL" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" : result.status === "SUBOPTIMAL_TRAVERSAL" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40" : "bg-amber-500/20 text-amber-400 border border-amber-500/40"}`}>
+            <span
+              className={`font-bold px-2 py-0.5 rounded text-[10px] tracking-wider ${result.status === "OPTIMAL_TRAVERSAL" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" : result.status === "SUBOPTIMAL_TRAVERSAL" ? "bg-cyan-500/20 text-cyan-400 border border-cyan-500/40" : "bg-amber-500/20 text-amber-400 border border-amber-500/40"}`}
+            >
               STATUS: {result.status}
             </span>
-            <span className="text-amber-400 font-mono font-bold">Power consumed: {result.power_consumed.toFixed(2)}</span>
+            <span className="text-amber-400 font-mono font-bold">
+              Power consumed: {result.power_consumed.toFixed(2)}
+            </span>
           </div>
 
           <p className="text-slate-200">{result.message}</p>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
             <div>
               <span className="text-slate-500 block">Your Steps:</span>
-              <span className="text-cyan-400 font-bold">{result.player_steps}</span>
+              <span className="text-cyan-400 font-bold">
+                {result.player_steps}
+              </span>
             </div>
             <div>
               <span className="text-slate-500 block">Optimal Steps:</span>
-              <span className="text-emerald-400 font-bold">{result.optimal.steps ?? "N/A"}</span>
+              <span className="text-emerald-400 font-bold">
+                {result.optimal.steps ?? "N/A"}
+              </span>
             </div>
             <div>
               <span className="text-slate-500 block">Craters Visited:</span>
-              <span className="text-slate-300 font-bold">{result.craters_visited_count} / {result.total_craters}</span>
+              <span className="text-slate-300 font-bold">
+                {result.craters_visited_count} / {result.total_craters}
+              </span>
             </div>
             <div>
               <span className="text-slate-500 block">BFS Discovery:</span>
-              <span className="text-slate-300 font-bold">{result.optimal.bfs_discovery_order.map(displayNode).join(" → ")}</span>
+              <span className="text-slate-300 font-bold">
+                {result.optimal.bfs_discovery_order
+                  .map(displayNode)
+                  .join(" → ")}
+              </span>
             </div>
           </div>
           {result.unvisited_craters.length > 0 && (
-            <p className="text-amber-300">Not visited: {result.unvisited_craters.map(displayNode).join(", ")}</p>
+            <p className="text-amber-300">
+              Not visited:{" "}
+              {result.unvisited_craters.map(displayNode).join(", ")}
+            </p>
           )}
         </div>
       )}

@@ -1,5 +1,4 @@
-// frontend/src/minigames/RadioGame.tsx
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   gameApi,
   type SignalMatchResponse,
@@ -7,13 +6,29 @@ import {
   type SignalTransmissionResult,
 } from "@/services/api";
 
-export const RadioGame = () => {
-  const [activeTab, setActiveTab] = useState<"match" | "transmission">("match");
+interface RadioGameProps {
+  initialTab?: "match" | "transmission";
+  lockedTab?: boolean;
+  onMatchComplete?: (matched: boolean) => void;
+  onTransmissionComplete?: (decoded: boolean) => void;
+}
+
+export const RadioGame = ({
+  initialTab = "match",
+  lockedTab = false,
+  onMatchComplete,
+  onTransmissionComplete,
+}: RadioGameProps) => {
+  const [activeTab, setActiveTab] = useState<"match" | "transmission">(
+    initialTab,
+  );
 
   // Rabin-Karp Signal Matching State
   const [signalInput, setSignalInput] = useState("1101001011010010");
   const [patternInput, setPatternInput] = useState("010110");
-  const [matchResult, setMatchResult] = useState<SignalMatchResponse | null>(null);
+  const [matchResult, setMatchResult] = useState<SignalMatchResponse | null>(
+    null,
+  );
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
 
@@ -22,9 +37,11 @@ export const RadioGame = () => {
   const isPatternInvalid = Boolean(patternInput && /[^01]/.test(patternInput));
 
   // Huffman decoding state
-  const [transChallenge, setTransChallenge] = useState<SignalTransmissionChallenge | null>(null);
+  const [transChallenge, setTransChallenge] =
+    useState<SignalTransmissionChallenge | null>(null);
   const [transAnswer, setTransAnswer] = useState("");
-  const [transResult, setTransResult] = useState<SignalTransmissionResult | null>(null);
+  const [transResult, setTransResult] =
+    useState<SignalTransmissionResult | null>(null);
   const [transLoading, setTransLoading] = useState(false);
   const [transError, setTransError] = useState<string | null>(null);
   const isAnswerInvalid = /[^A-Z ]/.test(transAnswer);
@@ -36,35 +53,57 @@ export const RadioGame = () => {
     try {
       const res = await gameApi.submitSignalMatch(signalInput, patternInput);
       setMatchResult(res);
+      onMatchComplete?.(res.pattern_found);
     } catch (err: unknown) {
-      setMatchError(err instanceof Error ? err.message : "Signal matching failed");
+      setMatchError(
+        err instanceof Error ? err.message : "Signal matching failed",
+      );
     } finally {
       setMatchLoading(false);
     }
   };
 
-  const handleNewTransmission = async () => {
+  const handleNewTransmission = useCallback(async () => {
     setTransLoading(true);
     setTransError(null);
     setTransResult(null);
+
     try {
       setTransChallenge(await gameApi.newSignalTransmission());
       setTransAnswer("");
     } catch (err: unknown) {
-      setTransError(err instanceof Error ? err.message : "Could not load a transmission");
+      setTransError(
+        err instanceof Error ? err.message : "Could not load a transmission",
+      );
     } finally {
       setTransLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (initialTab === "transmission") {
+      void handleNewTransmission();
+    }
+  }, [initialTab, handleNewTransmission]);
 
   const handleTransSubmit = async () => {
     if (!transChallenge) return;
     setTransLoading(true);
     setTransError(null);
     try {
-      setTransResult(await gameApi.submitSignalTransmission(transChallenge, transAnswer));
+      const response = await gameApi.submitSignalTransmission(
+        transChallenge,
+        transAnswer,
+      );
+
+      setTransResult(response);
+      onTransmissionComplete?.(response.is_correct);
     } catch (err: unknown) {
-      setTransError(err instanceof Error ? err.message : "Could not decode the transmission");
+      setTransError(
+        err instanceof Error
+          ? err.message
+          : "Could not decode the transmission",
+      );
     } finally {
       setTransLoading(false);
     }
@@ -76,6 +115,7 @@ export const RadioGame = () => {
       <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
         <button
           onClick={() => setActiveTab("match")}
+          disabled={lockedTab}
           className={`px-3 py-1.5 rounded text-xs font-bold tracking-wider transition-colors cursor-pointer ${
             activeTab === "match"
               ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40"
@@ -85,6 +125,7 @@ export const RadioGame = () => {
           1. SIGNAL MATCHING (RABIN-KARP)
         </button>
         <button
+          disabled={lockedTab}
           onClick={() => {
             setActiveTab("transmission");
             if (!transChallenge && !transLoading) void handleNewTransmission();
@@ -103,7 +144,9 @@ export const RadioGame = () => {
       {activeTab === "match" && (
         <div className="flex flex-col space-y-4">
           <div className="text-xs text-slate-400">
-            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Search a high-speed telemetry carrier bitstream for a mission pattern using Rabin-Karp rolling-hash matching.
+            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Search a
+            high-speed telemetry carrier bitstream for a mission pattern using
+            Rabin-Karp rolling-hash matching.
           </div>
 
           {/* Input Controls */}
@@ -180,14 +223,23 @@ export const RadioGame = () => {
           {/* Action Button */}
           <div className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded border border-slate-800">
             <span className="text-xs text-slate-400 font-mono">
-              Signal: {signalInput.length} bits | Pattern: {patternInput.length} bits
+              Signal: {signalInput.length} bits | Pattern: {patternInput.length}{" "}
+              bits
             </span>
             <button
               onClick={handleMatchSubmit}
-              disabled={matchLoading || !signalInput || !patternInput || isSignalInvalid || isPatternInvalid}
+              disabled={
+                matchLoading ||
+                !signalInput ||
+                !patternInput ||
+                isSignalInvalid ||
+                isPatternInvalid
+              }
               className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
             >
-              {matchLoading ? "SCANNING ROLLING HASH..." : "SCAN CARRIER SIGNAL"}
+              {matchLoading
+                ? "SCANNING ROLLING HASH..."
+                : "SCAN CARRIER SIGNAL"}
             </button>
           </div>
 
@@ -211,7 +263,10 @@ export const RadioGame = () => {
                 </span>
                 {matchResult.pattern_found && (
                   <span className="text-slate-400 font-mono">
-                    Match Bit Offset: <span className="text-amber-400 font-bold">{matchResult.match_index}</span>
+                    Match Bit Offset:{" "}
+                    <span className="text-amber-400 font-bold">
+                      {matchResult.match_index}
+                    </span>
                   </span>
                 )}
               </div>
@@ -225,7 +280,8 @@ export const RadioGame = () => {
       {activeTab === "transmission" && (
         <div className="flex flex-col space-y-4">
           <div className="text-xs text-slate-400">
-            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Decode the binary message using the character-code table.
+            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Decode
+            the binary message using the character-code table.
           </div>
 
           {transError && (
@@ -242,13 +298,22 @@ export const RadioGame = () => {
                     CHARACTER : HUFFMAN CODE
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {Object.entries(transChallenge.code_map).map(([char, code]) => (
-                      <span key={char} className="px-2 py-1 bg-slate-950 border border-slate-700 rounded font-mono text-[11px]">
-                        <span className="text-amber-300 font-bold">{char === " " ? "SPACE" : char}</span>
-                        <span className="text-slate-500 mx-1">:</span>
-                        <span className="text-cyan-300 font-semibold">{code}</span>
-                      </span>
-                    ))}
+                    {Object.entries(transChallenge.code_map).map(
+                      ([char, code]) => (
+                        <span
+                          key={char}
+                          className="px-2 py-1 bg-slate-950 border border-slate-700 rounded font-mono text-[11px]"
+                        >
+                          <span className="text-amber-300 font-bold">
+                            {char === " " ? "SPACE" : char}
+                          </span>
+                          <span className="text-slate-500 mx-1">:</span>
+                          <span className="text-cyan-300 font-semibold">
+                            {code}
+                          </span>
+                        </span>
+                      ),
+                    )}
                   </div>
                 </div>
 
@@ -274,7 +339,9 @@ export const RadioGame = () => {
                   className="w-full bg-slate-950 border border-slate-700 rounded p-2 text-xs font-mono text-slate-100 focus:outline-none focus:border-cyan-500"
                 />
                 {isAnswerInvalid && (
-                  <p className="text-[10px] text-rose-400">Only capital letters A-Z and spaces are allowed.</p>
+                  <p className="text-[10px] text-rose-400">
+                    Only capital letters A-Z and spaces are allowed.
+                  </p>
                 )}
               </div>
 
@@ -288,7 +355,9 @@ export const RadioGame = () => {
                 </button>
                 <button
                   onClick={() => void handleTransSubmit()}
-                  disabled={transLoading || !transAnswer.trim() || isAnswerInvalid}
+                  disabled={
+                    transLoading || !transAnswer.trim() || isAnswerInvalid
+                  }
                   className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {transLoading ? "CHECKING..." : "DECODE MESSAGE"}
@@ -299,16 +368,21 @@ export const RadioGame = () => {
 
           {transResult && (
             <div className="text-xs p-3 border border-slate-700 bg-slate-900/95 rounded space-y-2">
-              <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${
-                transResult.is_correct
-                  ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                  : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-              }`}>
+              <span
+                className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold tracking-wider ${
+                  transResult.is_correct
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                    : "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                }`}
+              >
                 STATUS: {transResult.status}
               </span>
               <p className="text-slate-200">{transResult.message}</p>
               <p className="font-mono text-slate-400">
-                Correct message: <span className="text-cyan-300 font-bold">{transResult.correct_answer}</span>
+                Correct message:{" "}
+                <span className="text-cyan-300 font-bold">
+                  {transResult.correct_answer}
+                </span>
               </p>
             </div>
           )}

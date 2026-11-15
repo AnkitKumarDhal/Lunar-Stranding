@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 850" fill="none">
+  <defs>
+    <linearGradient id="body" x1="100" y1="120" x2="500" y2="820" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#164e63"/>
+      <stop offset="1" stop-color="#020617"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="180" y1="100" x2="430" y2="430" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#a5f3fc" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#0891b2" stop-opacity=".2"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="12" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <ellipse cx="300" cy="810" rx="210" ry="24" fill="#22d3ee" opacity=".12"/>
+
+  <path d="M92 850c12-170 74-260 208-260s196 90 208 260H92Z"
+    fill="url(#body)" stroke="#0891b2" stroke-width="5"/>
+  <path d="M150 850c20-125 72-192 150-192s130 67 150 192H150Z"
+    fill="#0f172a" stroke="#155e75" stroke-width="3"/>
+
+  <path d="M173 257c0-123 57-202 127-202s127 79 127 202v82c0 114-61 195-127 195s-127-81-127-195v-82Z"
+    fill="#0b1220" stroke="#22d3ee" stroke-width="7"/>
+
+  <path d="M190 267c0-94 48-166 110-166s110 72 110 166v56c0 95-49 164-110 164s-110-69-110-164v-56Z"
+    fill="url(#glass)" opacity=".75"/>
+
+  <path d="M222 285c20-19 40-29 63-29m30 0c23 0 43 10 63 29"
+    stroke="#cffafe" stroke-width="9" stroke-linecap="round" filter="url(#glow)"/>
+
+  <circle cx="255" cy="316" r="12" fill="#ecfeff" filter="url(#glow)"/>
+  <circle cx="345" cy="316" r="12" fill="#ecfeff" filter="url(#glow)"/>
+
+  <path d="M273 380c17 12 37 12 54 0"
+    stroke="#cffafe" stroke-width="7" stroke-linecap="round"/>
+
+  <path d="M150 626h300M125 705h350"
+    stroke="#22d3ee" stroke-opacity=".55" stroke-width="3"/>
+
+  <path d="M300 550v75m-47 40 47-35 47 35"
+    stroke="#67e8f9" stroke-opacity=".7" stroke-width="5"/>
+
+  <path d="M105 850 78 680m417 170 27-170"
+    stroke="#0891b2" stroke-opacity=".6" stroke-width="5"/>
+</svg>

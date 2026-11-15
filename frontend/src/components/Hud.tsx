@@ -1,26 +1,42 @@
 import {
-  Battery,
   Activity,
+  Battery,
+  CheckCircle2,
   Clock,
-  Terminal,
-  Volume2,
-  ShieldCheck,
-  Wind,
   Dumbbell,
+  ListChecks,
+  ShieldCheck,
   SunMedium,
+  Wind,
   type LucideIcon,
 } from "lucide-react";
 import type { DailyTasksState } from "../types/game";
 
 interface DailyRoutinePanelProps {
+  visible: boolean;
+  open: boolean;
+  onToggleOpen: () => void;
   tasks: DailyTasksState;
   onToggleTask: (taskKey: keyof DailyTasksState) => void;
+  day: number;
+  remainingSeconds: number | null;
+  sandbox: boolean;
+  onEndDay: () => void;
 }
 
 export function DailyRoutinePanel({
+  visible,
+  open,
+  onToggleOpen,
   tasks,
   onToggleTask,
+  day,
+  remainingSeconds,
+  sandbox,
+  onEndDay,
 }: DailyRoutinePanelProps) {
+  if (!visible) return null;
+
   const items: {
     key: keyof DailyTasksState;
     label: string;
@@ -36,150 +52,184 @@ export function DailyRoutinePanel({
     },
   ];
 
+  const completedCount = items.filter(({ key }) => tasks[key]).length;
+
   return (
-    <div className="absolute bottom-24 right-6 z-20 w-72 bg-slate-950/75 backdrop-blur-md border border-cyan-800/60 p-3.5 pointer-events-auto font-mono shadow-[0_0_15px_rgba(0,0,0,0.8)] select-none">
-      <div className="flex justify-between items-center border-b border-cyan-800 pb-1.5 mb-2.5">
-        <h2 className="text-xs font-bold text-cyan-400">DAILY CREW PROTOCOL</h2>
-        <span className="text-[9px] text-amber-400">1-CLICK TASKS</span>
-      </div>
-      <div className="space-y-1.5">
-        {items.map(({ key, label, icon: Icon }) => {
-          const done = tasks[key];
-          return (
+    <div className="pointer-events-auto absolute bottom-5 right-6 z-30 font-mono">
+      <button
+        type="button"
+        onClick={onToggleOpen}
+        className="flex items-center gap-2 border border-cyan-500/60 bg-slate-950/90 px-4 py-3 text-[10px] font-bold tracking-widest text-cyan-200 shadow-[0_0_18px_rgba(6,182,212,0.18)] backdrop-blur transition-colors hover:bg-cyan-950/80"
+      >
+        <ListChecks size={15} />
+        DAILY TASKS
+        <span className="text-amber-300">
+          {completedCount}/{items.length}
+        </span>
+        <span className="text-slate-500">{open ? "−" : "+"}</span>
+      </button>
+
+      {open && (
+        <div className="absolute bottom-14 right-0 w-80 border border-cyan-800/70 bg-slate-950/95 p-4 shadow-[0_0_30px_rgba(0,0,0,0.75)] backdrop-blur-xl">
+          <div className="mb-3 flex items-center justify-between border-b border-cyan-900 pb-2">
+            <div>
+              <h2 className="text-xs font-bold tracking-widest text-cyan-300">
+                DAY {String(day).padStart(2, "0")} // CREW ROUTINE
+              </h2>
+              <p className="mt-1 text-[9px] text-slate-500">
+                Optional base maintenance tasks
+              </p>
+            </div>
+            <span className="text-[10px] text-emerald-400">
+              {completedCount}/{items.length}
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {items.map(({ key, label, icon: Icon }) => {
+              const done = tasks[key];
+
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  disabled={done}
+                  onClick={() => onToggleTask(key)}
+                  className={`flex w-full items-center justify-between gap-2 border px-3 py-2.5 text-left text-[9px] tracking-wider transition-colors ${
+                    done
+                      ? "border-cyan-900/50 bg-slate-900/50 text-cyan-700"
+                      : "border-amber-500/40 bg-amber-950/20 text-amber-200 hover:border-amber-400 hover:bg-amber-950/50"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Icon size={13} /> {label}
+                  </span>
+                  {done ? <CheckCircle2 size={14} /> : <span>[ EXEC ]</span>}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-4 border-t border-slate-800 pt-3">
+            {!sandbox && remainingSeconds !== null && (
+              <p className="mb-3 flex items-center justify-between text-[10px] text-slate-400">
+                <span className="flex items-center gap-2">
+                  <Clock size={13} /> AUTONOMY WINDOW
+                </span>
+                <span className="font-bold tabular-nums text-amber-300">
+                  {Math.floor(remainingSeconds / 60)
+                    .toString()
+                    .padStart(2, "0")}
+                  :{(remainingSeconds % 60).toString().padStart(2, "0")}
+                </span>
+              </p>
+            )}
+
             <button
-              key={key}
-              disabled={done}
-              onClick={() => onToggleTask(key)}
-              className={`w-full flex items-center justify-between px-2.5 py-2 border text-[10px] tracking-wider transition-all cursor-pointer ${
-                done
-                  ? "border-cyan-900/50 bg-slate-900/40 text-cyan-600 cursor-default"
-                  : "border-amber-500/50 bg-amber-950/20 text-amber-300 hover:bg-amber-500/20 hover:border-amber-400"
-              }`}
+              type="button"
+              onClick={onEndDay}
+              className="w-full border border-cyan-500/60 bg-cyan-500/15 px-3 py-2.5 text-[10px] font-bold tracking-widest text-cyan-200 transition-colors hover:bg-cyan-500/25"
             >
-              <span className="flex items-center gap-2">
-                <Icon size={12} />
-                {label}
-              </span>
-              <span className="font-bold">{done ? "✓ DONE" : "[ EXEC ]"}</span>
+              {sandbox ? "END DAY" : "SLEEP / END DAY"}
             </button>
-          );
-        })}
-      </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 interface HudProps {
-  power: number;
+  power: number | null;
   health: number;
+  day: number;
+  missionStatus: string;
 }
 
-export default function Hud({ power, health }: HudProps) {
+export default function Hud({ power, health, day, missionStatus }: HudProps) {
   const panelBase =
-    "bg-slate-950/70 backdrop-blur-md border border-cyan-800/60 shadow-[0_0_15px_rgba(0,0,0,0.8)] pointer-events-auto font-mono";
+    "border border-cyan-800/60 bg-slate-950/75 font-mono shadow-[0_0_15px_rgba(0,0,0,0.8)] backdrop-blur-md pointer-events-auto";
+
+  const safePower = power === null ? null : Math.max(0, Math.min(100, power));
+  const safeHealth = Math.max(0, Math.min(100, health));
 
   return (
-    <div className="absolute inset-0 z-20 pointer-events-none text-cyan-100 uppercase tracking-wider select-none">
-      <div className="absolute top-4 left-6 flex items-center gap-3 pointer-events-auto">
-        <div className="w-12 h-12 flex items-center justify-center border-2 border-cyan-500 bg-black/80 font-bold text-2xl text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.5)]">
+    <div className="pointer-events-none absolute inset-0 z-20 select-none font-mono uppercase tracking-wider text-cyan-100">
+      <div className="pointer-events-auto absolute left-6 top-4 flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center border-2 border-cyan-500 bg-black/80 text-2xl font-bold text-cyan-400 shadow-[0_0_10px_rgba(6,182,212,0.5)]">
           LS
         </div>
+
         <div className="flex flex-col">
-          <h1 className="font-extrabold text-xl leading-tight text-white drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]">
+          <h1 className="text-xl font-extrabold leading-tight text-white drop-shadow-[0_0_8px_rgba(6,182,212,0.8)]">
             LUNAR STRANDING
           </h1>
-          <span className="text-[10px] text-cyan-500 tracking-[0.3em]">
+          <span className="text-[10px] tracking-[0.3em] text-cyan-500">
             SOUTH POLE OUTPOST
           </span>
         </div>
       </div>
 
-      <div className="absolute top-4 right-6 flex flex-col gap-2 w-72">
+      <div className="absolute right-6 top-4 flex w-72 flex-col gap-2">
         <div className={`${panelBase} p-3`}>
-          <div className="flex justify-between items-center mb-1.5 text-amber-400">
+          <div className="mb-1.5 flex items-center justify-between text-amber-400">
             <div className="flex items-center gap-1.5 text-xs font-bold">
               <Battery size={14} /> <span>POWER</span>
             </div>
-            <span className="text-xs">{power.toFixed(1)}/100</span>
+            <span className="text-xs">
+              {safePower === null
+                ? "SYNC PENDING"
+                : `${safePower.toFixed(1)}/100`}
+            </span>
           </div>
-          <div className="w-full bg-slate-900 h-2 border border-amber-900/50">
-            <div className="bg-amber-400 h-full shadow-[0_0_8px_#fbbf24]" style={{ width: `${power}%` }}></div>
+
+          <div className="h-2 w-full border border-amber-900/50 bg-slate-900">
+            <div
+              className="h-full bg-amber-400 shadow-[0_0_8px_#fbbf24]"
+              style={{ width: `${safePower ?? 0}%` }}
+            />
           </div>
         </div>
 
         <div className="flex gap-2">
-          <div className={`${panelBase} p-3 flex-1`}>
-            <div className="flex justify-between items-center mb-1 text-red-400">
+          <div className={`${panelBase} flex-1 p-3`}>
+            <div className="mb-1 flex items-center justify-between text-red-400">
               <div className="flex items-center gap-1 text-[10px] font-bold">
                 <Activity size={12} /> <span>HEALTH</span>
               </div>
-              <span className="text-[10px]">{health}%</span>
+              <span className="text-[10px]">{safeHealth.toFixed(0)}%</span>
             </div>
-            <div className="w-full bg-slate-900 h-1.5">
-              <div className="bg-red-500 h-full shadow-[0_0_5px_#ef4444]" style={{ width: `${health}%` }}></div>
+
+            <div className="h-1.5 w-full bg-slate-900">
+              <div
+                className="h-full bg-red-500 shadow-[0_0_5px_#ef4444]"
+                style={{ width: `${safeHealth}%` }}
+              />
             </div>
           </div>
 
           <div
-            className={`${panelBase} p-2 flex-1 flex flex-col justify-center items-center text-cyan-400`}
+            className={`${panelBase} flex flex-1 flex-col items-center justify-center p-2 text-cyan-400`}
           >
-            <div className="flex items-center gap-1 text-[10px] mb-0.5">
+            <div className="mb-0.5 flex items-center gap-1 text-[10px]">
               <Clock size={10} /> <span>MISSION TIME</span>
             </div>
+
             <span className="text-sm font-bold text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]">
-              DAY 01
+              DAY {String(day).padStart(2, "0")}
             </span>
           </div>
         </div>
       </div>
 
-      <div className={`absolute top-36 right-6 w-72 ${panelBase} p-4`}>
-        <h2 className="text-xs font-bold text-cyan-400 border-b border-cyan-800 pb-1.5 mb-3">
+      <div className={`absolute right-6 top-36 w-72 p-4 ${panelBase}`}>
+        <h2 className="mb-3 border-b border-cyan-800 pb-1.5 text-xs font-bold text-cyan-400">
           MISSION LOG
         </h2>
-        <ul className="text-[11px] space-y-2.5 text-cyan-100/80">
-          <li className="flex items-start gap-2">
-            <span className="text-amber-400 mt-0.5 animate-pulse">▶</span>
-            <span>Awaiting task assignment.</span>
-          </li>
-          <li className="flex items-start gap-2 opacity-40">
-            <span className="text-cyan-600 mt-0.5">✓</span>
-            <span className="line-through">Establish outpost power</span>
-          </li>
-        </ul>
-      </div>
 
-      <div className={`absolute bottom-4 left-6 w-96 ${panelBase} p-4`}>
-        <div className="flex items-center gap-2 text-[10px] text-amber-500 mb-2 border-b border-amber-900/50 pb-1.5">
-          <Terminal size={12} /> AI TERMINAL // MANUAL OVERRIDE
-        </div>
-        <div className="text-[11px] space-y-1 h-20 overflow-y-auto mb-3 flex flex-col justify-end">
-          <p className="text-cyan-500/70">&gt; System initialized.</p>
-          <p className="text-amber-400">
-            &gt; WARNING: 7 days life support remaining.
-          </p>
-          <p className="text-cyan-300">&gt; Awaiting queries...</p>
-        </div>
-        <div className="flex gap-2">
-          <button className="text-[10px] border border-cyan-800 hover:bg-cyan-900/50 hover:border-cyan-500 transition-colors py-1.5 px-3 flex-1 text-cyan-300 cursor-pointer">
-            [ STATUS ]
-          </button>
-          <button className="text-[10px] border border-cyan-800 hover:bg-cyan-900/50 hover:border-cyan-500 transition-colors py-1.5 px-3 flex-1 text-cyan-300 cursor-pointer">
-            [ RESCUE ]
-          </button>
-        </div>
-      </div>
-
-      <div className={`absolute bottom-4 right-6 w-48 ${panelBase} p-3`}>
-        <div className="text-[10px] text-cyan-600 mb-2">SYSTEM COMMS</div>
-        <div className="flex items-center justify-between text-[11px] text-cyan-300 hover:text-cyan-100 transition-colors cursor-pointer">
-          <div className="flex items-center gap-2">
-            <Volume2 size={14} /> <span>MUTE ALL</span>
-          </div>
-          <input
-            type="checkbox"
-            className="accent-cyan-500 w-3.5 h-3.5 cursor-pointer"
-          />
+        <div className="flex items-start gap-2 text-[10px] leading-5 text-cyan-100/80">
+          <span className="mt-0.5 animate-pulse text-amber-400">▶</span>
+          <span>{missionStatus}</span>
         </div>
       </div>
     </div>

@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 850" fill="none">
+  <defs>
+    <linearGradient id="suit" x1="100" y1="250" x2="500" y2="850" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#475569"/>
+      <stop offset="1" stop-color="#0f172a"/>
+    </linearGradient>
+    <linearGradient id="visor" x1="165" y1="130" x2="435" y2="440" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#fde68a" stop-opacity=".9"/>
+      <stop offset="1" stop-color="#b45309" stop-opacity=".3"/>
+    </linearGradient>
+  </defs>
+
+  <ellipse cx="300" cy="810" rx="210" ry="24" fill="#f59e0b" opacity=".12"/>
+
+  <path d="M70 850c10-178 83-270 230-270s220 92 230 270H70Z"
+    fill="url(#suit)" stroke="#d97706" stroke-width="6"/>
+  <path d="M135 850c22-120 80-192 165-192s143 72 165 192H135Z"
+    fill="#1e293b" stroke="#92400e" stroke-width="4"/>
+
+  <path d="M173 240c0-123 57-202 127-202s127 79 127 202v84c0 111-61 191-127 191s-127-80-127-191v-84Z"
+    fill="#111827" stroke="#f59e0b" stroke-width="8"/>
+
+  <path d="M190 245c0-97 48-170 110-170s110 73 110 170v65c0 91-49 161-110 161s-110-70-110-161v-65Z"
+    fill="url(#visor)" opacity=".8"/>
+
+  <path d="M205 262c39-37 75-56 95-56s56 19 95 56"
+    stroke="#fef3c7" stroke-opacity=".65" stroke-width="5"/>
+  <path d="M220 320h160"
+    stroke="#fef3c7" stroke-opacity=".45" stroke-width="4"/>
+
+  <path d="M160 625h280m-315 88h350"
+    stroke="#f59e0b" stroke-opacity=".55" stroke-width="4"/>
+
+  <rect x="245" y="650" width="110" height="70" rx="8"
+    fill="#0f172a" stroke="#fbbf24" stroke-width="4"/>
+
+  <path d="M270 685h60m-30-18v36"
+    stroke="#fbbf24" stroke-width="5" stroke-linecap="round"/>
+
+  <path d="M97 850 75 690m428 160 22-160"
+    stroke="#b45309" stroke-opacity=".7" stroke-width="6"/>
+</svg>
