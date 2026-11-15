@@ -60,7 +60,6 @@ interface MapNodeProps {
   top: string;
   left: string;
   accentColor: "cyan" | "amber" | "emerald";
-  statusBadge?: string;
   onClick: () => void;
 }
 
@@ -79,7 +78,6 @@ export const MapBox: React.FC<MapNodeProps> = ({
   top,
   left,
   accentColor,
-  statusBadge,
   onClick,
 }) => {
   const renderIcon = () => {
@@ -111,11 +109,6 @@ export const MapBox: React.FC<MapNodeProps> = ({
         className={`relative w-12 h-12 rounded-lg border flex items-center justify-center backdrop-blur-md ${colorMap[accentColor]}`}
       >
         {renderIcon()}
-        {statusBadge && (
-          <span className="absolute -top-2 -right-2 px-1.5 py-0.5 text-[9px] font-mono font-bold bg-slate-950 border border-current rounded">
-            {statusBadge}
-          </span>
-        )}
       </div>
 
       <span className="px-2.5 py-0.5 rounded bg-slate-950/90 border border-slate-700/80 text-[11px] font-mono font-bold tracking-wider text-slate-100 whitespace-nowrap shadow-[0_2px_8px_rgba(0,0,0,0.9)]">

@@ -38,13 +38,31 @@ def test_water_rover_optimal():
         graph=graph,
         start_node="Base",
         target_node="IceDeposit",
-        player_path=["Base", "NodeA", "NodeC", "IceDeposit"],
-        initial_battery=100.0
+        player_path=["Base", "NodeA", "NodeC", "IceDeposit"]
     )
     res = water_rover_navigation(req)
     assert res["status"] == "OPTIMAL"
     assert res["player_cost"] == 45.0
-    assert res["is_valid_path"] is True
+    assert res["power_consumed"] == 8.0
+    assert "efficiency_percentage" not in res
+
+
+def test_water_rover_suboptimal_route_consumes_more_power():
+    graph = {
+        "Base": {"NodeA": 15, "NodeB": 25},
+        "NodeA": {"Base": 15, "NodeC": 10, "NodeD": 30},
+        "NodeB": {"Base": 25, "NodeC": 5, "IceDeposit": 40},
+        "NodeC": {"NodeA": 10, "NodeB": 5, "IceDeposit": 20},
+        "NodeD": {"NodeA": 30, "IceDeposit": 10},
+        "IceDeposit": {"NodeB": 40, "NodeC": 20, "NodeD": 10},
+    }
+    req = WaterRoverRequest(
+        graph=graph,
+        player_path=["Base", "NodeB", "IceDeposit"],
+    )
+    res = water_rover_navigation(req)
+    assert res["status"] == "SUBOPTIMAL"
+    assert res["power_consumed"] > 8.0
 
 
 def test_water_rover_invalid_route():
@@ -53,12 +71,11 @@ def test_water_rover_invalid_route():
         graph=graph,
         start_node="Base",
         target_node="IceDeposit",
-        player_path=["Base", "IceDeposit"],
-        initial_battery=100.0
+        player_path=["Base", "IceDeposit"]
     )
     res = water_rover_navigation(req)
     assert res["status"] == "INVALID_ROUTE"
-    assert res["is_valid_path"] is False
+    assert res["power_consumed"] == 0.0
 
 
 def test_water_rover_unreachable_destination_null_cost():
@@ -77,13 +94,11 @@ def test_water_rover_unreachable_destination_null_cost():
     res = water_rover_navigation(req)
     assert res["status"] == "UNREACHABLE"
     assert res["optimal_cost"] is None
-    assert res["optimal"]["cost"] is None
+    assert res["power_consumed"] == 0.0
 
     # Strict JSON serialization test (disallows non-standard Infinity/NaN)
     serialized = json.dumps(jsonable_encoder(res), allow_nan=False)
-    parsed = json.loads(serialized)
-    assert parsed["optimal_cost"] is None
-    assert parsed["optimal"]["cost"] is None
+    assert json.loads(serialized)["optimal_cost"] is None
 
 
 def test_water_rover_rejects_negative_edge_weights():

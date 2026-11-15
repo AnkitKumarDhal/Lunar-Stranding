@@ -18,20 +18,11 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
 
 // 1. Water Rover (Dijkstra)
 export interface WaterRoverResponse {
-  is_valid_path: boolean;
   status: string;
-  optimal: {
-    path: string[];
-    cost: number | null;
-  };
   optimal_path: string[];
   optimal_cost: number | null;
-  player_path: string[];
   player_cost: number;
-  excess_energy_spent: number;
-  efficiency: number;
-  efficiency_percentage: number;
-  remaining_battery: number;
+  power_consumed: number;
   message: string;
 }
 
@@ -202,20 +193,10 @@ export const gameApi = {
   submitWaterRoverPath: (
     graph: Record<string, Record<string, number>>,
     path: string[],
-    battery: number = 100.0,
-    startNode: string = "Base",
-    targetNode: string = "IceDeposit",
   ) =>
     request<WaterRoverResponse>("/minigames/water-rover", {
       method: "POST",
-      body: JSON.stringify({
-        graph,
-        start_node: startNode,
-        target_node: targetNode,
-        player_path: path,
-        initial_battery: battery,
-        session_id: "default",
-      }),
+      body: JSON.stringify({ graph, player_path: path }),
     }),
 
   // 2. Crater Traverse (BFS)

@@ -132,7 +132,6 @@ export default function App() {
             top="68%"
             left="35%"
             accentColor="amber"
-            statusBadge="READY"
             onClick={() => setActiveFacility("water_rover")}
           />
 
@@ -170,7 +169,13 @@ export default function App() {
           subtitle={FACILITY_META[activeFacility].subtitle}
           onClose={() => setActiveFacility(null)}
         >
-          {activeFacility === "water_rover" && <WaterRoverGame />}
+          {activeFacility === "water_rover" && (
+            <WaterRoverGame
+              onPowerConsumed={(amount) =>
+                setPower((current) => Math.max(0, Number((current - amount).toFixed(2))))
+              }
+            />
+          )}
 
           {activeFacility === "solar" && <SolarPanelsGame />}
 
