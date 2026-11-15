@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { gameApi, type SolarPanelsResponse } from "@/services/api";
+import type { MissionOutcome } from "@/types/game";
 
 interface EdgeDef {
   u: string;
@@ -16,7 +17,7 @@ interface NodePosition {
 }
 
 interface SolarPanelsGameProps {
-  onCompleted?: () => void;
+  onCompleted?: (outcome: MissionOutcome) => void;
 }
 
 export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
@@ -127,9 +128,15 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
         startNode,
       );
       setResult(res);
-      if (res.status === "OPTIMAL" || res.status === "SUBOPTIMAL") {
-        onCompleted?.();
-      }
+
+      const outcome: MissionOutcome =
+        res.status === "OPTIMAL"
+          ? "optimal"
+          : res.status === "SUBOPTIMAL"
+            ? "suboptimal"
+            : "invalid";
+
+      onCompleted?.(outcome);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Grid submission failed");
     } finally {

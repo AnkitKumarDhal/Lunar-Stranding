@@ -1,5 +1,7 @@
+import type { MissionOutcome } from "../types/game";
+
 export type StorySpeaker = "AI" | "COMMANDER" | "SYSTEM";
-export type StoryOutcome = "success" | "failure" | null;
+export type StoryOutcome = MissionOutcome | null;
 
 export interface StoryLine {
   speaker: StorySpeaker;
@@ -26,10 +28,8 @@ export type StoryStep =
   | {
       type: "dialogue";
       lines: StoryLine[];
-      outcomeLines?: {
-        success: StoryLine[];
-        failure: StoryLine[];
-      };
+      outcomeLines?: Partial<Record<MissionOutcome, StoryLine[]>>;
+      retryOn?: MissionOutcome[];
     }
   | { type: "mission"; id: StoryMissionId }
   | { type: "optional-mission"; id: StoryMissionId }
@@ -44,107 +44,146 @@ const system = (text: string): StoryLine => ({ speaker: "SYSTEM", text });
 export const AUTONOMY_WINDOW_SECONDS = 180;
 
 export const STORY_STEPS: Record<number, StoryStep[]> = {
+  // =========================================================
+  // DAY 1
+  // =========================================================
   1: [
+    // LAND
     {
       type: "dialogue",
       lines: [
         ai("Hey there. You're finally awake."),
         ai(
-          "You were assigned to the Artemis south-pole mission. We were meant to bring this outpost online and prepare it for long-term operations.",
+          "It seems we've crashed at the Artemis Lunar Base near the south pole of the Moon.",
         ),
-        ai(
-          "Our lander was on final approach when my flight recorder lost several minutes. I can't tell you what caused the impact yet.",
-        ),
-        ai(
-          "It seems we've crashed on the Artemis Lunar Base at the south pole of the moon.",
-        ),
-        ai("We don't have much time, quickly get into the base."),
+        ai("We don't have much time. Quickly, get into the base."),
       ],
     },
+
+    // SUITPORT
     {
       type: "dialogue",
       lines: [
         ai("Before you go in, you must take off your suit at the suitport."),
-        ai("The moon dust is sharp since there's no air to smooth it down."),
         ai(
-          "If you go into the base with your suit, the dust will spread and damage the interior badly.",
+          "Moon dust is sharp because there's no air or weather to smooth it down.",
+        ),
+        ai(
+          "If you enter the base with your suit, the dust will spread and damage the interior.",
         ),
         ai("It could also get into your body and hurt you."),
       ],
     },
+
+    // START THE BASE
     {
       type: "dialogue",
       lines: [system("BASE UNLOCKED // LIFE SUPPORT ACCESS RESTORED")],
     },
+
+    // ECLSS
     {
       type: "dialogue",
       lines: [
         ai(
           "We're now in the ECLSS (Environmental Control and Life Support System).",
         ),
-        ai("It's similar to the space station you were in."),
+        ai("It's similar to the system on the space station you were in."),
         ai("We're lucky there's some backup power left for it to run, but..."),
         ai(
-          "It's not a lot, so we'll need to restart the solar panels to produce energy.",
+          "It's not a lot, so we'll need to restart the solar panels to produce energy and conserve the energy we have.",
+        ),
+      ],
+    },
+
+    // CONNECT THE BASE SOLAR PANELS
+    {
+      type: "dialogue",
+      lines: [
+        ai(
+          "Unlike on Earth, these solar panels are arranged vertically because the Sun stays low on the horizon here.",
         ),
         ai(
-          "Unlike at Earth, the solar panels here are vertical, since at the south pole the sun shines at a really low angle.",
+          "But the good news is that the Sun shines here continuously for almost 90% of the year.",
         ),
         ai(
-          "But the good news is that the Sun shines on here continuously for almost 90% of the year.",
+          "This grid has six panels. Connect all of them using exactly five cables and the least total cable length.",
         ),
-        ai("Ok then let's connect the solar panels."),
+        ai(
+          "Connecting the grid uses power. A longer cable layout costs more, so try to find the minimum cost path.",
+        ),
       ],
     },
     { type: "mission", id: "solar-panels" },
     {
       type: "dialogue",
-      lines: [
-        ai(
-          "The solar panels are connected. We have managed to bring the base's power system back online.",
-        ),
-      ],
+      lines: [ai("The grid isn't connected yet.")],
+      outcomeLines: {
+        optimal: [
+          ai(
+            "Wow, you're so good at this! All six panels are connected using the shortest cable layout. That saved us power.",
+          ),
+        ],
+        suboptimal: [
+          ai(
+            "Yay, you did it! The panels are connected, but the cables are longer than necessary, which used some extra power.",
+          ),
+        ],
+        invalid: [
+          ai(
+            "The grid isn't connected yet. We need five valid cables that link every panel without creating a loop.",
+          ),
+        ],
+      },
+      retryOn: ["invalid"],
     },
+
+    // CONNECT BACK TO EARTH
     {
       type: "dialogue",
       lines: [
         ai(
-          "Now that we have some power, let's try and connect back to base and ask for help.",
+          "Now that we have some power, let's contact Earth and ask for help.",
         ),
         ai(
-          "We cannot afford to send a high energy LASER signal, so let's use the Radio.",
+          "We cannot afford to send a high-energy laser signal, so we'll use the radio.",
         ),
         ai(
-          "Radio signals work by matching the frequencies of sender and receiver.",
+          "Radio communication works by matching a known signal pattern inside the received carrier.",
         ),
-        ai("Let's try to connect with the base Radio."),
+        ai(
+          "Let's search the carrier signal for the given pattern and establish a connection.",
+        ),
       ],
     },
     { type: "mission", id: "signal-match" },
     {
       type: "dialogue",
-      lines: [
-        ai(
-          "The radio system has finished scanning. Let's see what the signal tells us.",
-        ),
-      ],
+      lines: [ai("The signal pattern matches. We have a connection to Earth.")],
       outcomeLines: {
-        success: [ai("Yes we managed to connect.")],
-        failure: [
+        optimal: [
+          ai("Yes! The signal pattern matches. We have a connection to Earth."),
+        ],
+        incorrect: [
           ai(
-            "Uh oh, that's not matching. We're wasting energy, but we did receive a response fragment.",
+            "Uh-oh, that pattern doesn't match. We lost some energy. Check the signal and try again.",
           ),
         ],
       },
+      retryOn: ["incorrect"],
     },
+
+    // RECEIVE THE RESPONSE
     {
       type: "dialogue",
       lines: [
-        ai("Seems like they've sent us back the signal in binary."),
+        ai("It seems they've sent their response as binary."),
         ai(
-          "Makes sense, binary converts words into 0s and 1s, which makes things a whole lot smaller and simpler to transmit.",
+          "Binary represents information using only 0s and 1s, which makes it useful for digital transmission.",
         ),
-        ai("But we must decode the binary to understand it. You can do it."),
+        ai(
+          "You'll be given a character-code map and an encoded binary message. Decode it to read what Earth sent.",
+        ),
       ],
     },
     { type: "mission", id: "signal-decode" },
@@ -152,122 +191,167 @@ export const STORY_STEPS: Record<number, StoryStep[]> = {
       type: "dialogue",
       lines: [
         ai(
-          "The message is decoded. Now we know they've received our call for help.",
+          "They received our call for help. But it will take time for rescue to arrive.",
         ),
       ],
       outcomeLines: {
-        success: [
+        incorrect: [
           ai(
-            "Seems like they've received our call for help. But it'll take time.",
+            "That doesn't make sense. The message may have been decoded incorrectly. Let's try again.",
           ),
         ],
-        failure: [
+        optimal: [
           ai(
-            "That doesn't make sense, maybe the decode is wrong. Let's try something else. We still know the call went out, but we don't have a clear reply yet.",
+            "They received our call for help. But it will take time for rescue to arrive.",
           ),
+          ai("Space is vast. It could take a week or even longer."),
+          ai(
+            "You need to survive until they arrive. It's up to you to manage this base now, Chief.",
+          ),
+          ai("Chief? Or should I call you Commander? Commander sounds better."),
         ],
       },
+      retryOn: ["incorrect"],
     },
+
+    // DAILY CREW PROTOCOL / EXERCISE
     {
       type: "dialogue",
       lines: [
         ai(
-          "Space is big and it might take a week or even longer for help to come.",
-        ),
-        ai(
-          "You need to survive till they come, it's on you to command and handle this base now chief.",
-        ),
-        ai("Chief? Should I call you chief? Maybe commander fits better."),
-      ],
-    },
-    {
-      type: "dialogue",
-      lines: [
-        ai(
-          "Anyways, we've got a big day tomorrow, we need to prepared and healthy.",
+          "Anyways, we've got a big day tomorrow, you need to be prepared and stay healthy.",
         ),
         ai(
           "The gravity on the moon is very different from Earth. It's 6 times weaker.",
         ),
         ai(
-          "So you'll have to some intense exercise to maintain your body like you did in space station, or it'll get weaker.",
+          "So you'll have to some intense exercise to maintain your body like you did in space station, otherwise it'll get weaker.",
         ),
       ],
     },
+
+    // EAT AND SLEEP
     {
       type: "dialogue",
       lines: [
-        ai("Wow, that was a good session. Let's eat and sleep now."),
-        ai("Luckily there's food in the reserve."),
+        ai("That was a good session. Let's eat and rest."),
         ai(
-          "It has been dried completely to preserve it. Let's add water and eat it.",
+          "Luckily, there's food in the reserve. It's been dried to preserve it, so we need to add water before eating.",
         ),
-        ai("Now that food's done, let's go to sleep."),
         ai(
-          "The sun is still shining outside but the ECLSS will create a suitable environment to sleep.",
+          "The Sun may still be shining outside, but the ECLSS can maintain a suitable environment while we rest.",
         ),
       ],
     },
+
     { type: "autonomy" },
   ],
+
+  // =========================================================
+  // DAY 2
+  // =========================================================
   2: [
+    // MORNING
     {
       type: "dialogue",
       lines: [
         ai(
-          "Good Morning commander, welcome to Day 2 of your survival mission.",
+          "Good morning, commander. Welcome to Day 2 of your survival mission.",
         ),
         ai(
-          "Although we have some food in the reserve, it could run out very soon.",
+          "We still have some food in reserve, but it could run out. We need to prepare for the days ahead.",
         ),
-        ai("So we must prepare for the future."),
+      ],
+    },
+
+    // FOOD PRODUCTION
+    {
+      type: "dialogue",
+      lines: [
         ai(
-          "Veggies here are grown using different colored lights that provide the exact lights the plant need to grow.",
+          "The greenhouse grows food using scheduled systems such as LED photosynthesis, root misting and the algae bioreactor.",
         ),
-        ai("Select which lights we should turn on for today."),
-        ai("Two lights can't be on at the same time."),
+        ai("Each task has a start time, an end time and a power cost."),
+        ai(
+          "Choose a set of maximum number of tasks that do not overlap and stay within the 5 kilowatt power limit.",
+        ),
       ],
     },
     { type: "mission", id: "food-production" },
     {
       type: "dialogue",
+      lines: [ai("The schedule is not safe.")],
+      outcomeLines: {
+        optimal: [
+          ai(
+            "Excellent! That schedule consists of maximum number of tasks without exceeding the power limit.",
+          ),
+        ],
+        suboptimal: [
+          ai(
+            "That schedule works, but we could have conserved more power with a better combination of tasks.",
+          ),
+        ],
+        invalid: [
+          ai(
+            "The schedule is not safe. Tasks must not overlap, and their combined power draw must stay within the limit.",
+          ),
+        ],
+      },
+      retryOn: ["invalid"],
+    },
+
+    // GET WATER
+    {
+      type: "dialogue",
       lines: [
-        ai("Now, we need to get water. You see the big crater on the side?"),
-        ai(
-          "It's the Shackleton Crater, which is right at the south pole of the moon.",
-        ),
+        ai("Now we need to get water. Do you see the large crater nearby?"),
+        ai("That's Shackleton Crater, near the south pole of the Moon."),
         ai(
           "It's center is very deep, you could fit 15 Eiffel tower on top of each other, that's how deep it is.",
         ),
         ai(
-          "But that's why the sunlight never reaches here. So it remains really cold.",
+          "But that's why the sunlight never reaches here and it remains really cold.",
         ),
-        ai("That's why it's called PSR (permanent shadow region)."),
-        ai("These PSR's have ice deposits, we can collect water from there."),
+        ai("That's why it's called PSR(permanent shadow region)."),
+        ai("These PSR's have ice deposits where we can collect water from."),
         ai("Let's send a rover to go collect water."),
         ai(
           "Woah, it's quite dark, even our rover with advanced AI is struggling to find a path.",
         ),
         ai(
-          "Commander, can you help it get to the water, find the path that uses the least energy.",
+          "Commander, find the path from Base to the Ice Deposit that uses the least energy.",
         ),
       ],
     },
     { type: "mission", id: "water-rover" },
     {
       type: "dialogue",
-      lines: [
-        ai(
-          "The rover has reached the ice deposit and is returning with water.",
-        ),
-      ],
+      lines: [ai("The rover has reached the Ice Deposit.")],
+      outcomeLines: {
+        optimal: [
+          ai(
+            "Perfect route! We reached the Ice Deposit using the least energy.",
+          ),
+        ],
+        suboptimal: [
+          ai(
+            "We reached the Ice Deposit, but the route used more power than necessary.",
+          ),
+        ],
+        invalid: [
+          ai(
+            "The rover hasn't reached the Ice Deposit. Check that each step follows a connected route and try again.",
+          ),
+        ],
+      },
+      retryOn: ["invalid"],
     },
+
+    // OPTIONAL SOLAR GRID
     {
       type: "dialogue",
       lines: [
-        ai(
-          "Now the rover will return back with the water, let's think about our next step.",
-        ),
         ai(
           "Can you see those big solar grids at the top. They're built on the ridge that connects Shackleton crater and de-Garlache crater.",
         ),
@@ -294,171 +378,264 @@ export const STORY_STEPS: Record<number, StoryStep[]> = {
       ],
     },
     { type: "optional-mission", id: "solar-panels" },
+
+    // EXERCISE / REST
     {
       type: "dialogue",
       lines: [
         ai(
-          "The additional solar grid is now connected. It can supply more energy to the base.",
+          "Remember to keep the yourself healthy. Low-gravity exercise is important, and you should eat and rest before tomorrow.",
         ),
       ],
     },
     {
       type: "dialogue",
-      lines: [
-        ai("Congratulations on surviving Day 2 commander."),
-        ai("Let's get some exercise, eat and sleep now."),
-      ],
+      lines: [ai("Congratulations on surviving Day 2, commander.")],
     },
+
     { type: "autonomy" },
   ],
 
+  // =========================================================
+  // DAY 3
+  // =========================================================
   3: [
-    {
-      type: "dialogue",
-      lines: [ai("You should set the lights for today.")],
-    },
-    { type: "mission", id: "food-production" },
+    // FOOD PRODUCTION
     {
       type: "dialogue",
       lines: [
         ai(
-          "Commander, it seems like our water rover has been damaged significantly due to the moon dust.",
+          "Good morning, commander. Let's prepare the greenhouse schedule for today.",
         ),
         ai(
-          "we need to service the rover before we could send it to fetch water again.",
+          "Select non-overlapping tasks while keeping the combined power draw within the  limit.",
         ),
-        ai("Let's begin servicing the rover."),
+        ai(
+          "Try to schedule maximum number of tasks as possible without overloading the system.",
+        ),
+      ],
+    },
+    { type: "mission", id: "food-production" },
+
+    // ROVER SERVICING
+    {
+      type: "dialogue",
+      lines: [
+        ai("Commander, the water rover has been damaged by lunar dust."),
+        ai(
+          "We need to service it before sending it out to collect water again.",
+        ),
+        ai(
+          "The workshop has two servicing lines. Each station takes a different amount of time, and switching lines adds transfer time.",
+        ),
+        ai(
+          "Choose a line for every station to minimize the total servicing time. A slower schedule will consume more power.",
+        ),
       ],
     },
     { type: "mission", id: "rover-workshop" },
     {
       type: "dialogue",
-      lines: [
-        ai("Yay, the robot is fully cleaned and ready for another trip."),
-      ],
+      lines: [ai("The rover has been serviced.")],
+      outcomeLines: {
+        optimal: [
+          ai(
+            "Excellent! The rover is serviced using the minimum time and power.",
+          ),
+        ],
+        suboptimal: [
+          ai(
+            "The rover is serviced, but the schedule took longer and used more power than necessary.",
+          ),
+        ],
+      },
     },
+
+    // GET WATER AGAIN
     {
       type: "dialogue",
       lines: [
-        ai("Let's send the rover to get water again."),
-        ai("Wow, that path was perfect."),
+        ai("Let's send the rover to collect water again."),
+        ai("Find the least-energy route to the Ice Deposit."),
       ],
     },
     { type: "mission", id: "water-rover" },
     {
       type: "dialogue",
-      lines: [ai("The rover has returned with another supply of water.")],
+      lines: [ai("The rover has returned from the Ice Deposit.")],
+      outcomeLines: {
+        optimal: [
+          ai("Perfect! We reached the Ice Deposit using the least energy."),
+        ],
+        suboptimal: [
+          ai(
+            "We reached the Ice Deposit, but we used more power than necessary.",
+          ),
+        ],
+      },
     },
+
+    // ACTIVATE THE CRATER SENSORS
     {
       type: "dialogue",
       lines: [
         ai("Commander, let's activate the sensors around the base."),
         ai(
-          "There's a lot of threats like moon quakes, solar flares, radiation that we need to look out for.",
+          "They will help us monitor threats such as moonquakes, solar flares and radiation.",
         ),
         ai(
-          "We'll send a rover to activate the sensors. Let's try and reach all of them as quickly as we can.",
+          "We'll send a rover to activate each sensor. Guide it through every sensor location using the fewest movements.",
         ),
-        ai("We shouldn't waste energy running around in loops."),
+        ai("Let's avoid unnecessary loops. Every extra movement costs power."),
       ],
     },
     { type: "mission", id: "crater-sensors" },
     {
       type: "dialogue",
-      lines: [
-        ai(
-          "All perimeter sensors are online. We will be warned if a hazard approaches the base.",
-        ),
-      ],
+      lines: [ai("The crater sensors have been activated.")],
+      outcomeLines: {
+        optimal: [
+          ai(
+            "Perfect! Every sensor is active, and the rover used the minimum number of movements.",
+          ),
+        ],
+        suboptimal: [
+          ai(
+            "All the sensors are active, but the rover took a longer route and used more power than necessary.",
+          ),
+        ],
+      },
     },
+
+    // MICRO-PARTICLE DAMAGE
     {
       type: "dialogue",
       lines: [
         ai(
-          "Look at this commander, the sensors are showing a lot of charged up micro particles.",
+          "Look at this, Commander! The sensors are detecting charged micro-particles.",
         ),
         ai(
           "They could cause damage to the base. We need to be ready to fix the damage.",
         ),
       ],
     },
+
+    // PRESSURIZED ROVER
     {
       type: "dialogue",
       lines: [
         ai(
-          "Let's get into the pressure rover. It's a big rover that can be used as home base while travelling around on the moon.",
+          "Let's get into the pressurized rover. It can serve as a mobile home while we travel across the Moon.",
         ),
         ai(
-          "We'll use this to go mine some moon rocks, which we can then use to create protective shields.",
+          "We'll use it to reach a mining site and collect lunar samples for the base.",
         ),
         ai(
-          "It'll take time till we reach there Commander. You should do your exercise here.",
+          "It may take some time to get there, commander. Keep up your exercise routine while we travel.",
         ),
-        ai("That was a good session. You should eat and sleep now."),
       ],
     },
+
+    // EXERCISE, EAT AND SLEEP
+    {
+      type: "dialogue",
+      lines: [ai("That was a good session. You should eat and rest now.")],
+    },
+
     { type: "autonomy" },
   ],
 
+  // =========================================================
+  // DAY 4
+  // =========================================================
   4: [
+    // MINING NAVIGATION
     {
       type: "dialogue",
       lines: [
+        ai("We're getting far from the base, and it's getting dark."),
         ai(
-          "We're getting really far away from the base, it's getting really dark.",
+          "Commander, find a route to the Excavation site while keeping the net power cost as low as possible.",
         ),
-        ai("Commander I trust you to find a path before we run out of energy."),
+        ai(
+          "Some downhill routes have negative energy costs because they allow solar regeneration. Uphill routes consume power.",
+        ),
       ],
     },
     { type: "mission", id: "mining-navigation" },
     {
       type: "dialogue",
-      lines: [
-        ai(
-          "The rover has completed its route. We need to keep moving while we still have enough power.",
-        ),
-      ],
+      lines: [ai("The rover has reached the Excavation site.")],
       outcomeLines: {
-        success: [
+        optimal: [
           ai(
-            "Yay commander, we managed to find the path without running out of energy.",
+            "Great work, commander! We managed to find the least power consuming path.",
           ),
         ],
-        failure: [ai("Mission Failed")],
+        suboptimal: [
+          ai(
+            "We reached the Excavation site, but the route consumed more power. We need to watch our remaining reserve.",
+          ),
+        ],
       },
     },
+
+    // SAMPLE RETRIEVAL
     {
       type: "dialogue",
       lines: [
         ai(
-          "We found the moon rocks we needed, but we cannot carry them all in this rover.",
+          "We found the lunar samples we need, but the rover cannot carry them all.",
         ),
         ai(
-          "We must choose which ones to take, we can break the last rock to fill to the bag.",
+          "The cargo bay has a 15 kg limit. Each sample must be taken whole or left behind.",
         ),
-        ai("Let's return back to the base now."),
+        ai(
+          "Choose the combination that gives us the most valuable samples without exceeding the cargo limit.",
+        ),
       ],
     },
     { type: "mission", id: "sample-retrieval" },
     {
       type: "dialogue",
-      lines: [
-        ai(
-          "We managed to set up the protective shields. They should help protect the base from the charged particles.",
-        ),
-      ],
+      lines: [ai("The sample loadout has been confirmed.")],
+      outcomeLines: {
+        optimal: [ai("Excellent selection! We got most valuable samples.")],
+        suboptimal: [
+          ai(
+            "We got enough samples, but a better combination could have been more valuable.",
+          ),
+        ],
+        invalid: [
+          ai("The cargo is too heavy. We cannot load more than 15 kg."),
+        ],
+      },
+      retryOn: ["invalid"],
     },
+
+    // RETURN AND PROTECT THE BASE
     {
       type: "dialogue",
       lines: [
+        ai("Let's return to the base with the samples."),
         ai(
-          "Let's get some exercise, eat and sleep. Tomorrow, you'll be in control of the base.",
+          "These materials can be used to help protect the outpost from the micro-particle damage.",
         ),
       ],
     },
+
+    // EXERCISE, EAT AND SLEEP
+    {
+      type: "dialogue",
+      lines: [ai("Complete the exercise task, then eat and rest.")],
+    },
+
     { type: "autonomy" },
   ],
 
+  // =========================================================
+  // DAY 5 — FULL AUTONOMY
+  // =========================================================
   5: [
     {
       type: "dialogue",
@@ -472,6 +649,9 @@ export const STORY_STEPS: Record<number, StoryStep[]> = {
     { type: "sandbox" },
   ],
 
+  // =========================================================
+  // DAYS 6–7 — SANDBOX
+  // =========================================================
   6: [{ type: "sandbox" }],
   7: [{ type: "sandbox" }],
 };

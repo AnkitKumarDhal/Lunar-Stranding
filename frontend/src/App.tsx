@@ -208,7 +208,7 @@ function resolveDialogueLines(
   outcome: StoryOutcome,
 ) {
   if (outcome && step.outcomeLines) {
-    return step.outcomeLines[outcome];
+    return step.outcomeLines[outcome] ?? step.lines;
   }
 
   return step.lines;
@@ -222,12 +222,12 @@ function resolveStoryStep(
   const steps = STORY_STEPS[day] ?? [];
   let stepIndex = requestedIndex;
 
-  // Skipping the optional solar mission also skips its completion dialogue.
+  // The optional solar mission has no separate completion dialogue.
   while (
     steps[stepIndex]?.type === "optional-mission" &&
     !progress.optionalSolar
   ) {
-    stepIndex += 2;
+    stepIndex += 1;
   }
 
   const step = steps[stepIndex];
@@ -352,6 +352,18 @@ export default function App() {
         return { ...current, lineIndex: current.lineIndex + 1 };
       }
 
+      const shouldRetry =
+        current.lastMissionOutcome !== null &&
+        (step.retryOn?.includes(current.lastMissionOutcome) ?? false);
+
+      if (shouldRetry) {
+        return resolveStoryStep(
+          { ...current, lastMissionOutcome: null },
+          current.day,
+          current.stepIndex - 1,
+        );
+      }
+
       return resolveStoryStep(
         { ...current, lastMissionOutcome: null },
         current.day,
@@ -371,7 +383,16 @@ export default function App() {
         return current;
       }
 
-      const facilityToUnlock = FACILITY_UNLOCK_MISSION[step.id];
+      const isInvalidAttempt = outcome === "invalid" || outcome === "incorrect";
+
+      // The optional solar mission stays open if its grid is invalid.
+      if (step.type === "optional-mission" && isInvalidAttempt) {
+        return current;
+      }
+
+      const facilityToUnlock = isInvalidAttempt
+        ? undefined
+        : FACILITY_UNLOCK_MISSION[step.id];
 
       const unlockedFacilities = facilityToUnlock
         ? [...new Set([...current.unlockedFacilities, facilityToUnlock])]
@@ -624,26 +645,29 @@ export default function App() {
           {activeFacility === "water_rover" && (
             <WaterRoverGame
               onPowerConsumed={handlePowerConsumed}
-              onCompleted={
-                isStoryMission ? () => completeStoryMission() : undefined
-              }
+              onCompleted={(outcome) => {
+                if (!isStoryMission) return;
+                if (story.day === 3 && outcome === "invalid") return;
+
+                completeStoryMission(outcome);
+              }}
             />
           )}
 
           {activeFacility === "solar" && (
             <SolarPanelsGame
-              onCompleted={
-                isStoryMission ? () => completeStoryMission() : undefined
-              }
+              onCompleted={(outcome) => {
+                if (isStoryMission) completeStoryMission(outcome);
+              }}
             />
           )}
 
           {activeFacility === "crater_sensors" && (
             <CraterTraverseGame
               onPowerConsumed={handlePowerConsumed}
-              onCompleted={
-                isStoryMission ? () => completeStoryMission() : undefined
-              }
+              onCompleted={(outcome) => {
+                if (isStoryMission) completeStoryMission(outcome);
+              }}
             />
           )}
 
@@ -654,16 +678,14 @@ export default function App() {
                 missionId === "sample-retrieval" ? "cargo" : "navigation"
               }
               lockedTab={isStoryMission}
-              onNavigationComplete={(foundNegativeRoute) => {
+              onNavigationComplete={(outcome) => {
                 if (isStoryMission && missionId === "mining-navigation") {
-                  completeStoryMission(
-                    foundNegativeRoute ? "success" : "failure",
-                  );
+                  completeStoryMission(outcome);
                 }
               }}
-              onCargoComplete={() => {
+              onCargoComplete={(outcome) => {
                 if (isStoryMission && missionId === "sample-retrieval") {
-                  completeStoryMission();
+                  completeStoryMission(outcome);
                 }
               }}
             />
@@ -677,12 +699,12 @@ export default function App() {
               lockedTab={isStoryMission}
               onMatchComplete={(matched) => {
                 if (isStoryMission && missionId === "signal-match") {
-                  completeStoryMission(matched ? "success" : "failure");
+                  completeStoryMission(matched ? "optimal" : "incorrect");
                 }
               }}
               onTransmissionComplete={(decoded) => {
                 if (isStoryMission && missionId === "signal-decode") {
-                  completeStoryMission(decoded ? "success" : "failure");
+                  completeStoryMission(decoded ? "optimal" : "incorrect");
                 }
               }}
             />
@@ -693,8 +715,13 @@ export default function App() {
               currentHp={health}
               onPowerConsumed={handlePowerConsumed}
               onHealthChanged={setHealth}
-              onCompleted={() => {
-                if (isStoryMission) completeStoryMission();
+              onCompleted={(outcome) => {
+                if (!isStoryMission) return;
+
+                // Day 3 does not have a separate food-production outcome dialogue.
+                if (story.day === 3 && outcome === "invalid") return;
+
+                completeStoryMission(outcome);
               }}
             />
           )}
@@ -702,8 +729,8 @@ export default function App() {
           {activeFacility === "garage" && (
             <RoverWorkshopGame
               onPowerConsumed={handlePowerConsumed}
-              onCompleted={() => {
-                if (isStoryMission) completeStoryMission();
+              onCompleted={(outcome) => {
+                if (isStoryMission) completeStoryMission(outcome);
               }}
             />
           )}

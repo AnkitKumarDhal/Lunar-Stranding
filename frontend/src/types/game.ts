@@ -7,6 +7,8 @@ export type FacilityType =
   | "greenhouse"
   | "garage";
 
+export type MissionOutcome = "optimal" | "suboptimal" | "invalid" | "incorrect";
+
 export interface HazardPayload {
   id: string;
   title: string;

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { gameApi, type WaterRoverResponse } from "@/services/api";
+import type { MissionOutcome } from "@/types/game";
 
 interface WaterRoverGameProps {
   onPowerConsumed: (amount: number) => void;
-  onCompleted?: () => void;
+  onCompleted?: (outcome: MissionOutcome) => void;
 }
 
 const NODE_COORDS: Record<string, { x: number; y: number; label: string }> = {
@@ -83,8 +84,14 @@ export const WaterRoverGame = ({
       const response = await gameApi.submitWaterRoverPath(graph, path);
       setResult(response);
       if (response.power_consumed > 0) onPowerConsumed(response.power_consumed);
-      if (response.status === "OPTIMAL" || response.status === "SUBOPTIMAL")
-        onCompleted?.();
+      const outcome: MissionOutcome =
+        response.status === "OPTIMAL"
+          ? "optimal"
+          : response.status === "SUBOPTIMAL"
+            ? "suboptimal"
+            : "invalid";
+
+      onCompleted?.(outcome);
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Route transmission failed",

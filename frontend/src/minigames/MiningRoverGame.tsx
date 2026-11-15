@@ -6,6 +6,7 @@ import {
   type SampleRetrievalResponse,
   type SampleItem,
 } from "@/services/api";
+import type { MissionOutcome } from "@/types/game";
 
 const NODE_COORDS: Record<string, { x: number; y: number; label: string }> = {
   Base: { x: 60, y: 150, label: "BASE" },
@@ -20,8 +21,8 @@ interface MiningRoverGameProps {
   onPowerChange: (amount: number) => void;
   initialTab?: "navigation" | "cargo";
   lockedTab?: boolean;
-  onNavigationComplete?: (foundNegativeRoute: boolean) => void;
-  onCargoComplete?: () => void;
+  onNavigationComplete?: (outcome: MissionOutcome) => void;
+  onCargoComplete?: (outcome: MissionOutcome) => void;
 }
 
 export const MiningRoverGame = ({
@@ -131,8 +132,10 @@ export const MiningRoverGame = ({
       setNavResult(res);
       onPowerChange(res.power_change);
 
-      if (res.status === "OPTIMAL" || res.status === "SUBOPTIMAL") {
-        onNavigationComplete?.(res.power_change > 0);
+      if (res.status === "OPTIMAL") {
+        onNavigationComplete?.("optimal");
+      } else if (res.status === "SUBOPTIMAL") {
+        onNavigationComplete?.("suboptimal");
       }
     } catch (err: unknown) {
       setNavError(
@@ -173,12 +176,14 @@ export const MiningRoverGame = ({
       setCargoResult(response);
       onPowerChange(response.power_gained);
 
-      if (
-        response.status === "OPTIMAL_LOADOUT" ||
-        response.status === "SUBOPTIMAL_LOADOUT"
-      ) {
-        onCargoComplete?.();
-      }
+      const outcome: MissionOutcome =
+        response.status === "OPTIMAL_LOADOUT"
+          ? "optimal"
+          : response.status === "SUBOPTIMAL_LOADOUT"
+            ? "suboptimal"
+            : "invalid";
+
+      onCargoComplete?.(outcome);
     } catch (err: unknown) {
       setCargoError(
         err instanceof Error ? err.message : "Loadout validation failed",

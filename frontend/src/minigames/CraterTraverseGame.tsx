@@ -4,10 +4,11 @@ import {
   type CraterTraverseGameData,
   type CraterTraverseResponse,
 } from "@/services/api";
+import type { MissionOutcome } from "@/types/game";
 
 interface CraterTraverseGameProps {
   onPowerConsumed: (amount: number) => void;
-  onCompleted?: () => void;
+  onCompleted?: (outcome: MissionOutcome) => void;
 }
 
 type NodePosition = { x: number; y: number; label: string };
@@ -96,11 +97,10 @@ export const CraterTraverseGame = ({
       );
       setResult(response);
       onPowerConsumed(response.power_consumed);
-      if (
-        response.status === "OPTIMAL_TRAVERSAL" ||
-        response.status === "SUBOPTIMAL_TRAVERSAL"
-      ) {
-        onCompleted?.();
+      if (response.status === "OPTIMAL_TRAVERSAL") {
+        onCompleted?.("optimal");
+      } else if (response.status === "SUBOPTIMAL_TRAVERSAL") {
+        onCompleted?.("suboptimal");
       }
     } catch (err: unknown) {
       setError(

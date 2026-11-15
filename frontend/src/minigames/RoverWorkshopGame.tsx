@@ -4,10 +4,11 @@ import {
   type RoverWorkshopGameData,
   type RoverWorkshopResponse,
 } from "@/services/api";
+import type { MissionOutcome } from "@/types/game";
 
 interface RoverWorkshopGameProps {
   onPowerConsumed: (amount: number) => void;
-  onCompleted?: () => void;
+  onCompleted?: (outcome: MissionOutcome) => void;
 }
 
 export const RoverWorkshopGame = ({
@@ -58,12 +59,13 @@ export const RoverWorkshopGame = ({
       const response = await gameApi.submitRoverWorkshop(game, selectedLines);
       setResult(response);
       onPowerConsumed(response.power_consumed);
-      if (
-        response.status === "OPTIMAL_SCHEDULE" ||
-        response.status === "SUBOPTIMAL_SCHEDULE"
-      ) {
-        onCompleted?.();
-      }
+      const outcome: MissionOutcome =
+        response.status === "OPTIMAL_SCHEDULE"
+          ? "optimal"
+          : response.status === "SUBOPTIMAL_SCHEDULE"
+            ? "suboptimal"
+            : "invalid";
+      onCompleted?.(outcome);
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Schedule submission failed",

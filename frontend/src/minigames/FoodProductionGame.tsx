@@ -4,6 +4,7 @@ import {
   type FoodProductionResponse,
   type GreenhouseTaskItem,
 } from "@/services/api";
+import type { MissionOutcome } from "@/types/game";
 
 const DAILY_HP_DRAIN = 30;
 const POWER_BUS_LIMIT_KW = 5.0;
@@ -12,7 +13,7 @@ interface FoodProductionGameProps {
   currentHp: number;
   onPowerConsumed: (amount: number) => void;
   onHealthChanged: (health: number) => void;
-  onCompleted?: () => void;
+  onCompleted?: (outcome: MissionOutcome) => void;
 }
 
 export const FoodProductionGame = ({
@@ -81,12 +82,14 @@ export const FoodProductionGame = ({
       setResult(response);
       onPowerConsumed(response.power_consumed);
       onHealthChanged(response.final_hp);
-      if (
-        (response.status === "OPTIMAL" || response.status === "SUBOPTIMAL") &&
-        response.survived_day
-      ) {
-        onCompleted?.();
-      }
+      const outcome: MissionOutcome =
+        response.survived_day && response.status === "OPTIMAL"
+          ? "optimal"
+          : response.survived_day && response.status === "SUBOPTIMAL"
+            ? "suboptimal"
+            : "invalid";
+
+      onCompleted?.(outcome);
     } catch (err: unknown) {
       setError(
         err instanceof Error ? err.message : "Schedule simulation failed",
