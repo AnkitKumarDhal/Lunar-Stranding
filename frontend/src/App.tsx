@@ -330,11 +330,7 @@ export default function App() {
 
     setStory((current) => {
       if (current.day >= 7) {
-        return {
-          ...current,
-          mode: "finished",
-          autonomyEndsAt: null,
-        };
+        return resolveStoryStep(current, current.day, current.stepIndex + 1);
       }
 
       const nextDay = current.day + 1;
@@ -529,7 +525,7 @@ export default function App() {
     : story.mode === "autonomy"
       ? "DAILY AUTONOMY WINDOW"
       : story.mode === "finished"
-        ? "DAY 7 COMPLETE // RESCUE VERIFICATION PENDING"
+        ? "MISSION SUCCESS // SEVEN DAYS SURVIVED"
         : "GUIDED SURVIVAL // FOLLOW THE AI COMPANION";
 
   const openFacility = (facility: FacilityType) => {
@@ -832,16 +828,11 @@ export default function App() {
             </p>
 
             <h2 className="mt-4 text-3xl font-black tracking-widest text-white">
-              RESCUE WINDOW REACHED
+              MISSION SUCCESS
             </h2>
 
             <p className="mt-5 text-sm leading-7 text-slate-300">
-              The seven-day survival window is complete. Final rescue
-              confirmation must come from the backend life-support system.
-            </p>
-
-            <p className="mt-4 text-[10px] tracking-widest text-amber-300">
-              SURVIVAL STATUS: AWAITING AUTHORITATIVE ENERGY CHECK
+              You survived all seven days and kept the lunar outpost running until rescue arrived.
             </p>
 
             <button

@@ -664,8 +664,37 @@ export const STORY_STEPS: Record<number, StoryStep[]> = {
   ],
 
   // =========================================================
-  // DAYS 6–7 — SANDBOX
+  // DAY 6
   // =========================================================
-  6: [{ type: "sandbox" }],
-  7: [{ type: "sandbox" }],
+  6: [
+    {
+      type: "dialogue",
+      lines: [
+        ai("You made it through Day 5, Commander. The outpost is still running."),
+        ai("Let's begin Day 6. Today's required operations are waiting in Daily Operations."),
+      ],
+    },
+    { type: "sandbox" },
+  ],
+
+  // =========================================================
+  // DAY 7
+  // =========================================================
+  7: [
+    {
+      type: "dialogue",
+      lines: [
+        ai("You survived Day 6, Commander. We're almost there."),
+        ai("This is our final day. Complete today's operations, then we'll know we made it."),
+      ],
+    },
+    { type: "sandbox" },
+    {
+      type: "dialogue",
+      lines: [
+        ai("That's all seven days, Commander. You kept the outpost running until rescue arrived."),
+        ai("Congratulations. We succeeded in our mission."),
+      ],
+    },
+  ],
 };
