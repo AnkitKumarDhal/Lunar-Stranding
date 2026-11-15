@@ -1,5 +1,4 @@
 import {
-  Activity,
   Battery,
   CheckCircle2,
   Clock,
@@ -143,7 +142,6 @@ export function DailyRoutinePanel({
 
 interface HudProps {
   power: number | null;
-  health: number;
   day: number;
   missionStatus: string;
   onResetGame: () => void;
@@ -151,7 +149,6 @@ interface HudProps {
 
 export default function Hud({
   power,
-  health,
   day,
   missionStatus,
   onResetGame,
@@ -161,7 +158,6 @@ export default function Hud({
     "border border-cyan-800/60 bg-slate-950/75 font-mono shadow-[0_0_15px_rgba(0,0,0,0.8)] backdrop-blur-md pointer-events-auto";
 
   const safePower = power === null ? null : Math.max(0, Math.min(100, power));
-  const safeHealth = Math.max(0, Math.min(100, health));
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 select-none font-mono uppercase tracking-wider text-cyan-100">
@@ -201,26 +197,9 @@ export default function Hud({
           </div>
         </div>
 
-        <div className="flex gap-2">
-          <div className={`${panelBase} flex-1 p-3`}>
-            <div className="mb-1 flex items-center justify-between text-red-400">
-              <div className="flex items-center gap-1 text-[10px] font-bold">
-                <Activity size={12} /> <span>HEALTH</span>
-              </div>
-              <span className="text-[10px]">{safeHealth.toFixed(0)}%</span>
-            </div>
-
-            <div className="h-1.5 w-full bg-slate-900">
-              <div
-                className="h-full bg-red-500 shadow-[0_0_5px_#ef4444]"
-                style={{ width: `${safeHealth}%` }}
-              />
-            </div>
-          </div>
-
-          <div
-            className={`${panelBase} flex flex-1 flex-col items-center justify-center p-2 text-cyan-400`}
-          >
+        <div
+          className={`${panelBase} flex flex-col items-center justify-center p-2 text-cyan-400`}
+        >
             <div className="mb-0.5 flex items-center gap-1 text-[10px]">
               <Clock size={10} /> <span>MISSION TIME</span>
             </div>
@@ -229,7 +208,6 @@ export default function Hud({
               DAY {String(day).padStart(2, "0")}
             </span>
           </div>
-        </div>
       </div>
 
       <div className={`absolute right-6 top-36 w-72 p-4 ${panelBase}`}>

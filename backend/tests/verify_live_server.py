@@ -75,10 +75,8 @@ def run_live_check():
         # 5. Food Production optimal plan with bus limit
         food_payload = json.dumps({
             "available_tasks": [
-                {"name": "A", "start_hour": 0, "end_hour": 5,
-                    "power_kw": 8.0, "hp_gain": 50},
-                {"name": "B", "start_hour": 5, "end_hour": 8,
-                    "power_kw": 4.0, "hp_gain": 20}
+                {"name": "A", "start_hour": 0, "end_hour": 5, "power_kw": 8.0},
+                {"name": "B", "start_hour": 5, "end_hour": 8, "power_kw": 4.0}
             ],
             "selected_tasks": ["B"],
             "bus_limit_kw": 5.0
@@ -90,9 +88,8 @@ def run_live_check():
         )
         res_fp = json.loads(urllib.request.urlopen(req_fp).read().decode())
         assert res_fp["optimal"]["tasks"] == ["B"]
-        assert res_fp["optimal"]["max_hp_gain"] == 20
-        print(
-            "Live Food Production Bus Limit: Excluded 8 kW task, optimal plan is ['B'] (verified)")
+        assert res_fp["optimal"]["max_tasks"] == 1
+        print("Live Food Production Bus Limit: Excluded 8 kW task, optimal plan is ['B'] (verified)")
 
         # 6. Rabin-Karp invalid binary rejection: verify HTTP 400
         match_invalid = json.dumps(

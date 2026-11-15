@@ -6,20 +6,17 @@ import {
 } from "@/services/api";
 import type { MissionOutcome } from "@/types/game";
 
-const DAILY_HP_DRAIN = 30;
 const POWER_BUS_LIMIT_KW = 5.0;
+const POWER_COST_PER_KWH = 0.1;
+const TASK_COUNT = 7;
 
 interface FoodProductionGameProps {
-  currentHp: number;
   onPowerConsumed: (amount: number) => void;
-  onHealthChanged: (health: number) => void;
   onCompleted?: (outcome: MissionOutcome) => void;
 }
 
 export const FoodProductionGame = ({
-  currentHp,
   onPowerConsumed,
-  onHealthChanged,
   onCompleted,
 }: FoodProductionGameProps) => {
   const [tasks, setTasks] = useState<GreenhouseTaskItem[]>([]);
@@ -62,11 +59,13 @@ export const FoodProductionGame = ({
     );
   };
 
-  const chosenTasks = tasks.filter((task) => selectedTasks.includes(task.name));
-  const estimatedHpGain = chosenTasks.reduce(
-    (sum, task) => sum + task.hp_gain,
-    0,
-  );
+  const estimatedPower = tasks
+    .filter((task) => selectedTasks.includes(task.name))
+    .reduce(
+      (sum, task) =>
+        sum + task.power_kw * (task.end_hour - task.start_hour) * POWER_COST_PER_KWH,
+      0,
+    );
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
@@ -75,20 +74,16 @@ export const FoodProductionGame = ({
       const response = await gameApi.submitFoodProduction(
         tasks,
         selectedTasks,
-        currentHp,
-        DAILY_HP_DRAIN,
         POWER_BUS_LIMIT_KW,
       );
       setResult(response);
       onPowerConsumed(response.power_consumed);
-      onHealthChanged(response.final_hp);
       const outcome: MissionOutcome =
-        response.survived_day && response.status === "OPTIMAL"
+        response.status === "OPTIMAL"
           ? "optimal"
-          : response.survived_day && response.status === "SUBOPTIMAL"
+          : response.status === "SUBOPTIMAL"
             ? "suboptimal"
             : "invalid";
-
       onCompleted?.(outcome);
     } catch (err: unknown) {
       setError(
@@ -103,21 +98,14 @@ export const FoodProductionGame = ({
     <div className="flex flex-col h-full space-y-4">
       <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
         <div>
-          <span className="text-emerald-400 font-bold">OBJECTIVE:</span> Select
-          non-overlapping tasks to maximize Crew HP (Weighted Activity
-          Selection).
+          <span className="text-emerald-400 font-bold">OBJECTIVE:</span>{" "}
+          Select as many non-overlapping tasks as possible within the 5 kW limit.
         </div>
         <div className="text-[11px] font-mono text-right">
           Bus Limit:{" "}
           <span className="text-amber-400 font-bold">
             {POWER_BUS_LIMIT_KW.toFixed(1)} kW
           </span>
-          <span className="mx-1">|</span> Daily Drain:{" "}
-          <span className="text-rose-400 font-bold">-{DAILY_HP_DRAIN} HP</span>
-          <span className="mx-1">|</span> HP Yield:{" "}
-          <span className="text-emerald-400">2–4 / hour</span>
-          <span className="mx-1">|</span> Power:{" "}
-          <span className="text-amber-400">1% / 10 kWh</span>
         </div>
       </div>
 
@@ -182,9 +170,6 @@ export const FoodProductionGame = ({
                       <span className="text-amber-400">
                         {task.power_kw.toFixed(1)} kW
                       </span>
-                      <span className="text-emerald-400 font-bold">
-                        +{task.hp_gain} HP
-                      </span>
                     </div>
                   </div>
                 </div>
@@ -199,13 +184,13 @@ export const FoodProductionGame = ({
           <div>
             <span className="text-slate-500">TASKS: </span>
             <span className="text-cyan-400 font-bold">
-              {selectedTasks.length}
+              {selectedTasks.length}/{TASK_COUNT}
             </span>
           </div>
           <div>
-            <span className="text-slate-500">EST. HP: </span>
-            <span className="text-emerald-400 font-bold">
-              +{estimatedHpGain}
+            <span className="text-slate-500">EST. POWER: </span>
+            <span className="text-amber-400 font-bold">
+              -{estimatedPower.toFixed(2)}%
             </span>
           </div>
         </div>
@@ -260,30 +245,15 @@ export const FoodProductionGame = ({
             </span>
           </div>
           <p className="text-slate-200">{result.message}</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
+          <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
             <div>
-              <span className="text-slate-500 block">Crew Final HP:</span>
-              <span
-                className={`font-bold ${result.final_hp > 50 ? "text-emerald-400" : "text-amber-400"}`}
-              >
-                {result.final_hp}%{" "}
-                {result.survived_day ? "(SURVIVED)" : "(CASUALTY)"}
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-500 block">Food HP Gained:</span>
-              <span className="text-emerald-400 font-bold">
-                +{result.player_hp_gain} HP
-              </span>
-            </div>
-            <div>
-              <span className="text-slate-500 block">Optimal Max Gain:</span>
+              <span className="text-slate-500 block">TASKS SELECTED:</span>
               <span className="text-cyan-400 font-bold">
-                +{result.optimal.max_hp_gain} HP
+                {result.player_task_count}
               </span>
             </div>
             <div>
-              <span className="text-slate-500 block">Peak Power Draw:</span>
+              <span className="text-slate-500 block">PEAK POWER DRAW:</span>
               <span className="text-amber-400 font-bold">
                 {result.peak_power_kw.toFixed(1)} /{" "}
                 {result.bus_limit_kw.toFixed(1)} kW

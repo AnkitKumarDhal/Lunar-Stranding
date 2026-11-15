@@ -279,7 +279,6 @@ export default function App() {
 
   // The backend will supply this value. Do not calculate or mutate energy here.
   const power: number | null = null;
-  const [health, setHealth] = useState(100);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(story));
@@ -502,7 +501,6 @@ export default function App() {
     setStory(createInitialProgress());
     setManualFacility(null);
     setTasksOpen(false);
-    setHealth(100);
   };
 
   const resetGameForTesting = () => {
@@ -516,7 +514,7 @@ export default function App() {
 
     localStorage.removeItem(STORAGE_KEY);
 
-    // Reloading also resets health, active minigames and transient UI state.
+    // Reloading resets active minigames and transient UI state.
     window.location.reload();
   };
 
@@ -617,7 +615,6 @@ export default function App() {
 
       <Hud
         power={power}
-        health={health}
         day={story.day}
         missionStatus={missionStatus}
         onResetGame={resetGameForTesting}
@@ -713,9 +710,7 @@ export default function App() {
 
           {activeFacility === "greenhouse" && (
             <FoodProductionGame
-              currentHp={health}
               onPowerConsumed={handlePowerConsumed}
-              onHealthChanged={setHealth}
               onCompleted={(outcome) => {
                 if (!isStoryMission) return;
 

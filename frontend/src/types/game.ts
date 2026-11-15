@@ -92,25 +92,6 @@ export interface SampleRetrievalResult {
   message: string;
 }
 
-export interface GreenhouseActivity {
-  name: string;
-  start_hour: number;
-  end_hour: number;
-  power_kw: number;
-  hp_gain: number;
-}
-
-export interface FoodProductionResult {
-  status: string;
-  message: string;
-  hp_gained?: number;
-  max_possible_hp_gain?: number;
-  daily_drain?: number;
-  new_hp: number;
-  survived_day: boolean;
-  optimal_plan?: string[];
-}
-
 export interface SignalMatchResult {
   match_found: boolean;
   index: number;

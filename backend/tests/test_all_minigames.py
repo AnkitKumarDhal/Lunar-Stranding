@@ -483,135 +483,119 @@ def test_sample_retrieval_overweight_loadout():
     assert "power_gained" not in res
 
 
-# --- 6. Food Production (Weighted Activity Selection) ---
+# --- 6. Food Production (Greedy Activity Selection) ---
 def test_food_production_optimal():
     tasks = [
-        TaskModel(name="UV Sterilization", start_hour=0, end_hour=4, power_kw=3.0, hp_gain=10),
-        TaskModel(name="LED Boost", start_hour=2, end_hour=7, power_kw=4.0, hp_gain=18),
-        TaskModel(name="Algae Agitation", start_hour=4, end_hour=8, power_kw=3.0, hp_gain=15),
-        TaskModel(name="Harvest Cycle", start_hour=8, end_hour=12, power_kw=3.5, hp_gain=20),
+        TaskModel(name="UV Sterilization", start_hour=0, end_hour=4, power_kw=3.0),
+        TaskModel(name="LED Boost", start_hour=2, end_hour=7, power_kw=4.0),
+        TaskModel(name="Algae Agitation", start_hour=4, end_hour=8, power_kw=3.0),
+        TaskModel(name="Harvest Cycle", start_hour=8, end_hour=12, power_kw=3.5),
     ]
     req = FoodProductionRequest(
         available_tasks=tasks,
         selected_tasks=["UV Sterilization", "Algae Agitation", "Harvest Cycle"],
-        current_hp=80,
-        daily_hp_drain=30,
-        bus_limit_kw=5.0
     )
-    res = food_production_scheduling(req)
-    assert res["status"] == "OPTIMAL"
-    assert res["player_hp_gain"] == 45
+    result = food_production_scheduling(req)
+    assert result["status"] == "OPTIMAL"
+    assert result["player_task_count"] == 3
+    assert result["optimal"]["max_tasks"] == 3
 
 
 def test_food_production_power_overload():
     tasks = [
-        TaskModel(name="Task1", start_hour=0, end_hour=5, power_kw=3.5, hp_gain=10),
-        TaskModel(name="Task2", start_hour=2, end_hour=6, power_kw=3.0, hp_gain=15),
+        TaskModel(name="Task1", start_hour=0, end_hour=5, power_kw=3.5),
+        TaskModel(name="Task2", start_hour=2, end_hour=6, power_kw=3.0),
     ]
-    req = FoodProductionRequest(
-        available_tasks=tasks,
-        selected_tasks=["Task1", "Task2"],
-        bus_limit_kw=5.0
-    )
-    res = food_production_scheduling(req)
-    assert res["status"] == "POWER_OVERLOAD"
+    result = food_production_scheduling(FoodProductionRequest(
+        available_tasks=tasks, selected_tasks=["Task1", "Task2"]
+    ))
+    assert result["status"] == "POWER_OVERLOAD"
 
 
 def test_food_production_scheduling_conflict():
     tasks = [
-        TaskModel(name="Task1", start_hour=0, end_hour=5, power_kw=1.0, hp_gain=10),
-        TaskModel(name="Task2", start_hour=2, end_hour=6, power_kw=1.0, hp_gain=15),
+        TaskModel(name="Task1", start_hour=0, end_hour=5, power_kw=1.0),
+        TaskModel(name="Task2", start_hour=2, end_hour=6, power_kw=1.0),
     ]
-    req = FoodProductionRequest(
-        available_tasks=tasks,
-        selected_tasks=["Task1", "Task2"],
-        bus_limit_kw=5.0
-    )
-    res = food_production_scheduling(req)
-    assert res["status"] == "SCHEDULING_CONFLICT"
+    result = food_production_scheduling(FoodProductionRequest(
+        available_tasks=tasks, selected_tasks=["Task1", "Task2"]
+    ))
+    assert result["status"] == "SCHEDULING_CONFLICT"
 
 
 def test_food_production_rejects_invalid_intervals():
-    # Case 5: Reject invalid intervals (start >= end) immediately with HTTP 400 without hanging
-    tasks = [
-        TaskModel(name="InvalidInterval", start_hour=6, end_hour=4, power_kw=3.0, hp_gain=10)
-    ]
-    req = FoodProductionRequest(available_tasks=tasks, selected_tasks=["InvalidInterval"])
+    tasks = [TaskModel(name="InvalidInterval", start_hour=6, end_hour=4, power_kw=3.0)]
     with pytest.raises(HTTPException) as exc_info:
-        food_production_scheduling(req)
+        food_production_scheduling(FoodProductionRequest(available_tasks=tasks, selected_tasks=["InvalidInterval"]))
     assert exc_info.value.status_code == 400
     assert "invalid time interval" in exc_info.value.detail
 
-    # Zero duration interval
-    tasks_zero = [
-        TaskModel(name="ZeroDuration", start_hour=5, end_hour=5, power_kw=3.0, hp_gain=10)
-    ]
-    req_zero = FoodProductionRequest(available_tasks=tasks_zero, selected_tasks=["ZeroDuration"])
-    with pytest.raises(HTTPException) as exc_info_zero:
-        food_production_scheduling(req_zero)
-    assert exc_info_zero.value.status_code == 400
+    tasks = [TaskModel(name="ZeroDuration", start_hour=5, end_hour=5, power_kw=3.0)]
+    with pytest.raises(HTTPException):
+        food_production_scheduling(FoodProductionRequest(available_tasks=tasks, selected_tasks=["ZeroDuration"]))
 
 
 def test_food_production_rejects_duplicate_task_names():
-    # Case 6: Reject duplicate task names with HTTP 400
     tasks = [
-        TaskModel(name="UV Light", start_hour=0, end_hour=4, power_kw=3.0, hp_gain=10),
-        TaskModel(name="UV Light", start_hour=5, end_hour=8, power_kw=2.0, hp_gain=12)
+        TaskModel(name="UV Light", start_hour=0, end_hour=4, power_kw=3.0),
+        TaskModel(name="UV Light", start_hour=5, end_hour=8, power_kw=2.0),
     ]
-    req = FoodProductionRequest(available_tasks=tasks, selected_tasks=["UV Light"])
     with pytest.raises(HTTPException) as exc_info:
-        food_production_scheduling(req)
+        food_production_scheduling(FoodProductionRequest(available_tasks=tasks, selected_tasks=["UV Light"]))
     assert exc_info.value.status_code == 400
     assert "Duplicate task name" in exc_info.value.detail
 
 
-def test_food_production_generates_random_tasks():
-    game = food_production_scheduling(FoodProductionRequest())
-    tasks = game["available_tasks"]
-
-    assert len(tasks) == 6
-    assert len({task["name"] for task in tasks}) == 6
+def test_food_production_generates_seven_random_tasks():
+    tasks = food_production_scheduling(FoodProductionRequest())["available_tasks"]
+    assert len(tasks) == 7
+    assert len({task["name"] for task in tasks}) == 7
     for task in tasks:
-        duration = task["end_hour"] - task["start_hour"]
         assert 0 <= task["start_hour"] < task["end_hour"] <= 24
         assert 1.5 <= task["power_kw"] <= 4.8
-        assert 2 <= task["hp_gain"] // duration <= 4
+        assert set(task) == {"name", "start_hour", "end_hour", "power_kw"}
 
 
-def test_food_production_power_and_hp_formula():
-    task = TaskModel(name="LED Cycle", start_hour=2, end_hour=7, power_kw=2.0, hp_gain=12)
-    req = FoodProductionRequest(
-        available_tasks=[task],
-        selected_tasks=["LED Cycle"],
-        current_hp=80,
-        daily_hp_drain=30,
-    )
-    result = food_production_scheduling(req)
-
-    assert result["power_consumed"] == 1.0  # 10 kWh / 10 = 1 HUD power point
-    assert result["player_hp_gain"] == 12
-    assert result["final_hp"] == 62  # 80 - 30 + 12
+def test_food_production_always_consumes_power_for_selected_tasks():
+    task = TaskModel(name="LED Cycle", start_hour=2, end_hour=7, power_kw=2.0)
+    result = food_production_scheduling(FoodProductionRequest(
+        available_tasks=[task], selected_tasks=["LED Cycle"]
+    ))
+    assert result["power_consumed"] == 1.0  # 10 kWh costs 1 HUD point.
+    assert result["status"] == "OPTIMAL"
+    assert set(result) == {
+        "status", "optimal", "player_task_count", "peak_power_kw",
+        "bus_limit_kw", "power_consumed", "message",
+    }
 
 
-def test_food_production_optimal_plan_excludes_tasks_exceeding_bus_limit():
-    # Case 7: Exclude tasks exceeding bus_limit_kw from optimal plan
-    # Task A: 0-5, 8 kW, 50 HP (exceeds 5 kW bus limit)
-    # Task B: 5-8, 4 kW, 20 HP (within 5 kW bus limit)
-    # Expected: Task B only, with 20 HP
+def test_food_production_maximizes_task_count_not_power_value():
     tasks = [
-        TaskModel(name="A", start_hour=0, end_hour=5, power_kw=8.0, hp_gain=50),
-        TaskModel(name="B", start_hour=5, end_hour=8, power_kw=4.0, hp_gain=20),
+        TaskModel(name="Long", start_hour=0, end_hour=6, power_kw=4.5),
+        TaskModel(name="A", start_hour=0, end_hour=2, power_kw=3.0),
+        TaskModel(name="B", start_hour=2, end_hour=4, power_kw=3.0),
+        TaskModel(name="C", start_hour=4, end_hour=6, power_kw=3.0),
     ]
-    req = FoodProductionRequest(
-        available_tasks=tasks,
-        selected_tasks=["B"],
-        bus_limit_kw=5.0
-    )
-    res = food_production_scheduling(req)
-    assert res["optimal"]["max_hp_gain"] == 20
-    assert res["optimal"]["tasks"] == ["B"]
-    assert res["status"] == "OPTIMAL"
-    assert res["player_hp_gain"] == 20
+    result = food_production_scheduling(FoodProductionRequest(
+        available_tasks=tasks, selected_tasks=["A", "B", "C"]
+    ))
+    assert result["optimal"]["tasks"] == ["A", "B", "C"]
+    assert result["optimal"]["max_tasks"] == 3
+    assert result["status"] == "OPTIMAL"
+
+
+def test_food_production_optimal_plan_excludes_tasks_over_bus_limit():
+    tasks = [
+        TaskModel(name="A", start_hour=0, end_hour=5, power_kw=8.0),
+        TaskModel(name="B", start_hour=5, end_hour=8, power_kw=4.0),
+    ]
+    result = food_production_scheduling(FoodProductionRequest(
+        available_tasks=tasks, selected_tasks=["B"], bus_limit_kw=5.0
+    ))
+    assert result["optimal"]["tasks"] == ["B"]
+    assert result["optimal"]["max_tasks"] == 1
+    assert result["status"] == "OPTIMAL"
+    assert result["player_task_count"] == 1
 
 
 # --- 7. Signal Match (Rabin-Karp) ---
