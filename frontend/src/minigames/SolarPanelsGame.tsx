@@ -259,7 +259,7 @@ export const SolarPanelsGame = () => {
 
       {result && (
         <div className="text-xs p-3 border border-slate-700 bg-slate-900/95 rounded space-y-2">
-          <div className="flex items-center justify-between">
+          <div>
             <span
               className={`font-bold px-2 py-0.5 rounded text-[10px] tracking-wider ${
                 result.status === "OPTIMAL"
@@ -270,9 +270,6 @@ export const SolarPanelsGame = () => {
               }`}
             >
               STATUS: {result.status}
-            </span>
-            <span className="text-slate-400 font-mono">
-              Efficiency: <span className="text-cyan-400 font-bold">{result.efficiency_percentage}%</span>
             </span>
           </div>
 

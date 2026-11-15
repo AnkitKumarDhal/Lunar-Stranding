@@ -10,7 +10,7 @@ from main import root
 from routers.water_rover import water_rover_navigation, WaterRoverRequest
 from routers.crater_traverse import crater_traversal, CraterTraverseRequest, generate_crater_game, bfs_reachable
 from routers.solar_panels import solar_panels_mst, SolarPanelsRequest
-from routers.mining_rover import mining_rover_navigation, MiningRoverRequest
+from routers.mining_rover import mining_rover_navigation, MiningRoverRequest, generate_mining_game
 from routers.sample_retrieval import sample_retrieval, SampleRetrievalRequest, SampleItem
 from routers.food_production import food_production_scheduling, FoodProductionRequest, TaskModel
 from routers.signal_match import signal_match_search, SignalMatchRequest
@@ -219,7 +219,7 @@ def test_solar_panels_optimal():
     assert res["status"] == "OPTIMAL"
     assert res["optimal_cost"] == 4.0
     assert res["player_cost"] == 4.0
-    assert res["is_valid_mst"] is True
+    assert set(res) == {"status", "optimal_cost", "optimal_edges", "player_cost", "message"}
 
 
 def test_solar_panels_invalid_edges():
@@ -234,7 +234,6 @@ def test_solar_panels_invalid_edges():
         player_edges=[["A", "B"]]
     )
     res = solar_panels_mst(req)
-    assert res["is_valid_mst"] is False
     assert res["status"] == "INVALID_SPANNING_TREE"
 
 
@@ -313,7 +312,8 @@ def test_mining_rover_optimal():
     assert res["status"] == "OPTIMAL"
     assert res["optimal_cost"] == 4.0
     assert res["player_cost"] == 4.0
-    assert res["has_negative_cycle"] is False
+    assert res["power_change"] == -2.0
+    assert "efficiency" not in res
 
 
 def test_mining_rover_negative_cycle_valid_json_without_infinity():
@@ -332,15 +332,12 @@ def test_mining_rover_negative_cycle_valid_json_without_infinity():
     )
     res = mining_rover_navigation(req)
     assert res["status"] == "NEGATIVE_CYCLE_DETECTED"
-    assert res["has_negative_cycle"] is True
     assert res["optimal_cost"] is None
-    assert res["optimal"]["cost"] is None
+    assert res["power_change"] == 0.0
 
     # Strict standard JSON serialization test
     serialized = json.dumps(jsonable_encoder(res), allow_nan=False)
-    parsed = json.loads(serialized)
-    assert parsed["optimal_cost"] is None
-    assert parsed["optimal"]["cost"] is None
+    assert json.loads(serialized)["optimal_cost"] is None
 
 
 def test_mining_rover_unreachable_destination_null_cost():
@@ -355,14 +352,45 @@ def test_mining_rover_unreachable_destination_null_cost():
     res = mining_rover_navigation(req)
     assert res["status"] == "UNREACHABLE"
     assert res["optimal_cost"] is None
-    assert res["optimal"]["cost"] is None
-    assert res["optimal"]["distances"]["Excavation"] is None
+    assert res["power_change"] == 0.0
 
     # Strict standard JSON serialization test
     serialized = json.dumps(jsonable_encoder(res), allow_nan=False)
-    parsed = json.loads(serialized)
-    assert parsed["optimal_cost"] is None
-    assert parsed["optimal"]["cost"] is None
+    assert json.loads(serialized)["optimal_cost"] is None
+
+
+def test_mining_rover_generates_random_costs_for_same_map():
+    game = generate_mining_game()
+    edges = game["edges"]
+
+    assert len(edges) == 8
+    assert game["start_node"] == "Base"
+    assert game["target_node"] == "Excavation"
+    assert {node for u, v, _ in edges for node in (u, v)} == {
+        "Base", "Crater_Site", "Anomaly_Zone", "Deep_Shaft", "Lava_Tube", "Excavation"
+    }
+    costs = [weight for _, _, weight in edges]
+    assert any(cost < 0 for cost in costs)
+    assert 0 in costs
+    assert any(cost > 0 for cost in costs)
+
+
+def test_mining_rover_negative_cost_regenerates_power():
+    edges = [
+        ["Base", "Crater_Site", -2], ["Base", "Anomaly_Zone", 6],
+        ["Crater_Site", "Deep_Shaft", 1], ["Crater_Site", "Anomaly_Zone", -3],
+        ["Anomaly_Zone", "Lava_Tube", 1], ["Anomaly_Zone", "Deep_Shaft", -2],
+        ["Deep_Shaft", "Excavation", 1], ["Lava_Tube", "Excavation", 1],
+    ]
+    req = MiningRoverRequest(
+        edges=edges,
+        player_path=["Base", "Crater_Site", "Anomaly_Zone", "Deep_Shaft", "Excavation"],
+    )
+    res = mining_rover_navigation(req)
+
+    assert res["status"] == "OPTIMAL"
+    assert res["player_cost"] == -6.0
+    assert res["power_change"] == 3.0
 
 
 # --- 5. Sample Retrieval (0/1 Knapsack) ---
