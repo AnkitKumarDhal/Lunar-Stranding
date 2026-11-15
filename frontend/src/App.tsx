@@ -656,6 +656,7 @@ export default function App() {
 
           {activeFacility === "solar" && (
             <SolarPanelsGame
+              onPowerConsumed={handlePowerConsumed}
               onCompleted={(outcome) => {
                 if (isStoryMission) completeStoryMission(outcome);
               }}

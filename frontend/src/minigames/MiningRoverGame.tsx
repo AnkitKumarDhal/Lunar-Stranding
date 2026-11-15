@@ -174,7 +174,6 @@ export const MiningRoverGame = ({
         roverCapacity,
       );
       setCargoResult(response);
-      onPowerChange(response.power_gained);
 
       const outcome: MissionOutcome =
         response.status === "OPTIMAL_LOADOUT"
@@ -193,9 +192,9 @@ export const MiningRoverGame = ({
     }
   };
 
-  const currentWeight = samples
-    .filter((sample) => selectedSampleIds.includes(sample.id))
-    .reduce((sum, sample) => sum + sample.weight, 0);
+  const selectedSamples = samples.filter((sample) => selectedSampleIds.includes(sample.id));
+  const currentWeight = selectedSamples.reduce((sum, sample) => sum + sample.weight, 0);
+  const currentValue = selectedSamples.reduce((sum, sample) => sum + sample.value, 0);
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -501,8 +500,8 @@ export const MiningRoverGame = ({
         <div className="flex flex-col space-y-4">
           <div className="text-xs text-slate-400">
             <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Choose
-            samples within the {roverCapacity} kg cargo limit to recover as much
-            power as possible (0/1 Knapsack).
+            the most valuable lunar minerals without exceeding the {roverCapacity} kg
+            cargo limit (0/1 Knapsack).
           </div>
 
           <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-2">
@@ -520,7 +519,7 @@ export const MiningRoverGame = ({
                 </span>
               </span>
               <span className="text-slate-400">
-                {selectedSampleIds.length} SAMPLES SELECTED
+                TOTAL VALUE: <span className="text-emerald-400 font-bold">{currentValue}</span>
               </span>
             </div>
             <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-700">
@@ -564,10 +563,8 @@ export const MiningRoverGame = ({
                       <span className="text-amber-300">{sample.weight} kg</span>
                     </span>
                     <span className="text-slate-400">
-                      Power value:{" "}
-                      <span className="text-emerald-400">
-                        +{sample.power_value}
-                      </span>
+                      Value:{" "}
+                      <span className="text-emerald-400">{sample.value}</span>
                     </span>
                   </div>
                 </button>
@@ -615,7 +612,7 @@ export const MiningRoverGame = ({
                 }
                 className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40"
               >
-                {cargoLoading ? "LOADING..." : "RECOVER POWER"}
+                {cargoLoading ? "LOADING..." : "SUBMIT LOADOUT"}
               </button>
             </div>
           </div>
@@ -641,7 +638,7 @@ export const MiningRoverGame = ({
                   STATUS: {cargoResult.status}
                 </span>
                 <span className="text-emerald-400 font-mono font-bold">
-                  POWER RECOVERED: +{cargoResult.power_gained.toFixed(2)}
+                  VALUE RECOVERED: {cargoResult.player_total_value}
                 </span>
               </div>
               <p className="text-slate-200">{cargoResult.message}</p>
@@ -660,9 +657,9 @@ export const MiningRoverGame = ({
                   </span>
                 </span>
                 <span className="text-slate-400">
-                  Maximum recovery:{" "}
+                  Best possible value:{" "}
                   <span className="text-emerald-300">
-                    +{cargoResult.max_power_gain}
+                    {cargoResult.optimal_total_value}
                   </span>
                 </span>
               </div>

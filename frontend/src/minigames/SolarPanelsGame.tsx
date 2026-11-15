@@ -17,13 +17,15 @@ interface NodePosition {
 }
 
 interface SolarPanelsGameProps {
+  onPowerConsumed?: (amount: number) => void;
   onCompleted?: (outcome: MissionOutcome) => void;
 }
 
-export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
-  const [graph, setGraph] = useState<Record<string, Record<string, number>>>(
-    {},
-  );
+export const SolarPanelsGame = ({
+  onPowerConsumed,
+  onCompleted,
+}: SolarPanelsGameProps) => {
+  const [graph, setGraph] = useState<Record<string, Record<string, number>>>({});
   const [startNode, setStartNode] = useState("A");
   const [selectedEdges, setSelectedEdges] = useState<[string, string][]>([]);
   const [result, setResult] = useState<SolarPanelsResponse | null>(null);
@@ -32,18 +34,13 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
   const hasLoaded = useRef(false);
 
   const nodes = Object.keys(graph);
+  // Position the six panels in a clear 2x3 rectangle.
   const nodeCoords: Record<string, NodePosition> = Object.fromEntries(
-    nodes.map((node, index) => {
-      const angle = (2 * Math.PI * index) / nodes.length - Math.PI / 2;
-      return [
-        node,
-        {
-          x: 250 + 180 * Math.cos(angle),
-          y: 150 + 115 * Math.sin(angle),
-          label: `PANEL ${node}`,
-        },
-      ];
-    }),
+    nodes.map((node, index) => [node, {
+      x: 90 + (index % 3) * 160,
+      y: index < 3 ? 75 : 225,
+      label: `PANEL ${node}`,
+    }]),
   );
 
   // Draw each undirected edge once and place its weight at the midpoint.
@@ -86,20 +83,14 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
 
   // Check and toggle an undirected cable connection.
   const isSelected = (u: string, v: string) =>
-    selectedEdges.some(
-      ([a, b]) => (a === u && b === v) || (a === v && b === u),
-    );
+    selectedEdges.some(([a, b]) => (a === u && b === v) || (a === v && b === u));
 
   const toggleEdge = (u: string, v: string) => {
     setResult(null);
     setSelectedEdges((prev) => {
-      const exists = prev.some(
-        ([a, b]) => (a === u && b === v) || (a === v && b === u),
-      );
+      const exists = prev.some(([a, b]) => (a === u && b === v) || (a === v && b === u));
       return exists
-        ? prev.filter(
-            ([a, b]) => !((a === u && b === v) || (a === v && b === u)),
-          )
+        ? prev.filter(([a, b]) => !((a === u && b === v) || (a === v && b === u)))
         : [...prev, [u, v]];
     });
   };
@@ -115,19 +106,16 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
     (sum, [u, v]) => sum + (graph[u]?.[v] ?? graph[v]?.[u] ?? 0),
     0,
   );
-  const panelCount = nodes.length || 10;
+  const panelCount = nodes.length || 6;
   const requiredEdges = panelCount - 1;
 
   const handleSubmit = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await gameApi.submitSolarPanels(
-        graph,
-        selectedEdges,
-        startNode,
-      );
+      const res = await gameApi.submitSolarPanels(graph, selectedEdges, startNode);
       setResult(res);
+      if (res.power_consumed > 0) onPowerConsumed?.(res.power_consumed);
 
       const outcome: MissionOutcome =
         res.status === "OPTIMAL"
@@ -149,25 +137,19 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
       {/* Explain the objective and the number of required connections. */}
       <div className="flex items-center justify-between text-xs text-slate-400 border-b border-slate-800 pb-2">
         <div>
-          <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Connect
-          all{" "}
-          <span className="text-slate-200 font-bold">
-            {panelCount} solar panels
-          </span>{" "}
+          <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Connect all{" "}
+          <span className="text-slate-200 font-bold">{panelCount} solar panels</span>{" "}
           using minimum total cable length (Prim&apos;s MST).
         </div>
         <div className="text-[11px] text-slate-400 font-mono">
-          Required Cables:{" "}
-          <span className="text-amber-400 font-bold">{requiredEdges || 9}</span>
+          Required Cables: <span className="text-amber-400 font-bold">{requiredEdges}</span>
         </div>
       </div>
 
       {/* Render the randomized graph. */}
       <div className="flex-1 min-h-[280px] bg-slate-900/90 border border-slate-700/80 rounded-lg p-3 relative flex items-center justify-center">
         {nodes.length === 0 ? (
-          <span className="text-xs text-slate-400">
-            {loading ? "GENERATING SOLAR GRID..." : "NO GRID AVAILABLE"}
-          </span>
+          <span className="text-xs text-slate-400">{loading ? "GENERATING SOLAR GRID..." : "NO GRID AVAILABLE"}</span>
         ) : (
           <svg viewBox="0 0 500 300" className="w-full h-full select-none">
             {allEdges.map((edge) => {
@@ -181,14 +163,7 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
                   onClick={() => !loading && toggleEdge(edge.u, edge.v)}
                   className="cursor-pointer group"
                 >
-                  <line
-                    x1={p1.x}
-                    y1={p1.y}
-                    x2={p2.x}
-                    y2={p2.y}
-                    stroke="transparent"
-                    strokeWidth="18"
-                  />
+                  <line x1={p1.x} y1={p1.y} x2={p2.x} y2={p2.y} stroke="transparent" strokeWidth="18" />
                   <line
                     x1={p1.x}
                     y1={p1.y}
@@ -226,9 +201,7 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
 
             {Object.entries(nodeCoords).map(([key, node]) => {
               const isHub = key === startNode;
-              const isConnected = selectedEdges.some(
-                ([a, b]) => a === key || b === key,
-              );
+              const isConnected = selectedEdges.some(([a, b]) => a === key || b === key);
 
               return (
                 <g key={key} transform={`translate(${node.x}, ${node.y})`}>
@@ -260,9 +233,7 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
         <div className="flex items-center gap-4 text-xs font-mono">
           <div>
             <span className="text-slate-500">CABLES CONNECTED: </span>
-            <span
-              className={`font-bold ${selectedEdges.length === requiredEdges ? "text-emerald-400" : "text-amber-400"}`}
-            >
+            <span className={`font-bold ${selectedEdges.length === requiredEdges ? "text-emerald-400" : "text-amber-400"}`}>
               {selectedEdges.length} / {requiredEdges}
             </span>
           </div>
@@ -289,9 +260,7 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={
-              loading || nodes.length === 0 || selectedEdges.length === 0
-            }
+            disabled={loading || nodes.length === 0 || selectedEdges.length === 0 || result !== null}
             className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? "CALCULATING MST..." : "CONNECT POWER GRID"}
@@ -323,18 +292,18 @@ export const SolarPanelsGame = ({ onCompleted }: SolarPanelsGameProps) => {
 
           <p className="text-slate-200">{result.message}</p>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
             <div>
               <span className="text-slate-500 block">Your Cable Length:</span>
-              <span className="text-amber-400 font-bold">
-                {result.player_cost}m
-              </span>
+              <span className="text-amber-400 font-bold">{result.player_cost}m</span>
             </div>
             <div>
               <span className="text-slate-500 block">Optimal MST Length:</span>
-              <span className="text-emerald-400 font-bold">
-                {result.optimal_cost}m
-              </span>
+              <span className="text-emerald-400 font-bold">{result.optimal_cost}m</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Power Consumed:</span>
+              <span className="text-amber-400 font-bold">{result.power_consumed}</span>
             </div>
             <div>
               <span className="text-slate-500 block">Optimal Connections:</span>

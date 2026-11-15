@@ -1,11 +1,9 @@
 import random
-from itertools import combinations
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/api/minigames", tags=["solar-panels"])
-NODES = list("ABCDEFGHIJ")
+NODES = list("ABCDEF")
 
 
 class SolarPanelsRequest(BaseModel):
@@ -40,20 +38,15 @@ def prim_minimum_spanning_tree(
 
 
 def generate_solar_game():
-    # Build a connected random graph with 15-20 undirected edges.
-    edges = {}
-    for i in range(1, len(NODES)):
-        edge = tuple(sorted((NODES[i], random.choice(NODES[:i]))))
-        edges[edge] = random.randint(1, 15)
-
-    remaining = [edge for edge in combinations(NODES, 2) if edge not in edges]
-    for edge in random.sample(remaining, random.randint(15, 20) - len(edges)):
-        edges[edge] = random.randint(1, 15)
-
+    # Create a 2x3 grid with one extra diagonal for another route option.
+    edges = [
+        ("A", "B"), ("B", "C"), ("D", "E"), ("E", "F"),
+        ("A", "D"), ("B", "E"), ("C", "F"),
+        random.choice([("A", "E"), ("B", "D"), ("B", "F"), ("C", "E")]),
+    ]
     graph = {node: {} for node in NODES}
-    for (u, v), weight in edges.items():
-        graph[u][v] = graph[v][u] = weight
-
+    for u, v in edges:
+        graph[u][v] = graph[v][u] = random.randint(1, 15)
     return {"graph": graph, "start_node": "A"}
 
 
@@ -134,6 +127,7 @@ def solar_panels_mst(req: SolarPanelsRequest):
             "optimal_cost": round(optimal_cost, 2),
             "optimal_edges": optimal_edges,
             "player_cost": 0.0,
+            "power_consumed": 0.0,
             "message": "The grid is disconnected, so a complete spanning tree cannot be formed.",
         }
 
@@ -144,18 +138,21 @@ def solar_panels_mst(req: SolarPanelsRequest):
             "optimal_cost": round(optimal_cost, 2),
             "optimal_edges": optimal_edges,
             "player_cost": round(player_cost, 2),
+            "power_consumed": 0.0,
             "message": error,
         }
 
-    optimal = abs(player_cost - optimal_cost) < 1e-9
-    excess = round(player_cost - optimal_cost, 2)
+    excess = max(0.0, player_cost - optimal_cost)
+    power_consumed = round(2.0 + excess * 0.25, 2)
+    optimal = excess < 1e-9
     return {
         "status": "OPTIMAL" if optimal else "SUBOPTIMAL",
         "optimal_cost": round(optimal_cost, 2),
         "optimal_edges": optimal_edges,
         "player_cost": round(player_cost, 2),
+        "power_consumed": power_consumed,
         "message": (
-            f"Optimal grid! All {len(graph)} solar panels connected using {player_cost:.2f}m of cable."
-            if optimal else f"All panels connected, but you used {excess:.2f}m more cable than necessary."
+            f"Optimal grid connected! Power used: {power_consumed:.2f}."
+            if optimal else f"Grid connected with {excess:.2f}m extra cable. Power used: {power_consumed:.2f}."
         ),
     }
