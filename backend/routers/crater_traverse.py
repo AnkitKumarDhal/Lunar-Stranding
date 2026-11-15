@@ -17,24 +17,22 @@ class CraterTraverseRequest(BaseModel):
 
 
 def generate_crater_game():
-    """Create a connected, one-way crater network with 10 nodes and 16-20 edges."""
+    """Create a connected, undirected crater network with 10 nodes and 16-20 edges."""
     nodes = CRATER_NODES
     ring = nodes if random.choice((True, False)) else list(reversed(nodes))
     graph = {node: [] for node in nodes}
 
-    # A directed ring guarantees every crater remains reachable.
+    # An undirected ring guarantees every crater remains reachable.
     for i, node in enumerate(ring):
-        graph[node].append(ring[(i + 1) % len(ring)])
+        graph[node].extend([ring[i - 1], ring[(i + 1) % len(ring)]])
 
     ring_edges = {frozenset((node, ring[(i + 1) % len(ring)])) for i, node in enumerate(ring)}
     extra_edges = [edge for edge in combinations(nodes, 2) if frozenset(edge) not in ring_edges]
 
-    # Add 6-10 one-way shortcuts without creating duplicate reverse routes.
+    # Add 6-10 undirected shortcuts without duplicate routes.
     for u, v in random.sample(extra_edges, random.randint(6, 10)):
-        if random.choice((True, False)):
-            graph[u].append(v)
-        else:
-            graph[v].append(u)
+        graph[u].append(v)
+        graph[v].append(u)
 
     return {"graph": graph, "start_node": nodes[0]}
 
@@ -59,7 +57,7 @@ def bfs_reachable(graph: dict[str, list[str]], start: str) -> list[str]:
 def bfs_min_steps_to_all(
     graph: dict[str, list[str]], start: str
 ) -> tuple[int | None, list[str]]:
-    """Find the shortest directed walk that visits every node at least once."""
+    """Find the shortest walk that visits every node at least once."""
     nodes = sorted(graph)
     if len(nodes) <= 1:
         return 0, [start]
@@ -97,7 +95,7 @@ def validate_player_path(graph: dict[str, list[str]], path: list[str], start: st
         if current not in graph:
             return False, f"Crater {current} not found on map"
         if next_node not in graph.get(current, []):
-            return False, f"No direct one-way route from {current} to {next_node}"
+            return False, f"No direct route from {current} to {next_node}"
 
     return True, ""
 

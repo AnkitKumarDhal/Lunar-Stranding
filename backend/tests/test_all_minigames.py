@@ -135,20 +135,20 @@ def test_crater_traverse_incomplete():
     assert res["power_consumed"] > 0
 
 
-def test_crater_game_generates_connected_one_way_graph():
+def test_crater_game_generates_connected_undirected_graph():
     game = generate_crater_game()
     graph = game["graph"]
     edge_count = sum(len(neighbors) for neighbors in graph.values())
 
     assert len(graph) == 10
-    assert 16 <= edge_count <= 20
+    assert 16 <= edge_count // 2 <= 20
     assert len(bfs_reachable(graph, game["start_node"])) == 10
 
-    # Each connection is one-way; the generator never adds its reverse.
+    # Each connection is undirected; the generator adds both directions.
     for node, neighbors in graph.items():
         for neighbor in neighbors:
             assert neighbor in graph
-            assert node not in graph[neighbor]
+            assert node in graph[neighbor]
 
 
 def test_crater_traverse_disconnected_counts_actual_visits():
@@ -351,35 +351,61 @@ def test_mining_rover_unreachable_destination_null_cost():
 
 
 # --- 5. Sample Retrieval (0/1 Knapsack) ---
-def test_sample_retrieval_optimal():
+def test_sample_retrieval_generates_random_samples():
+    res = sample_retrieval(SampleRetrievalRequest())
+    samples = res["available_samples"]
+
+    assert res["bag_capacity"] == 15
+    assert len(samples) == 10
+    assert len({sample.id for sample in samples}) == 10
+    assert all(1 <= sample.weight <= 15 for sample in samples)
+    assert all(10 <= sample.power_value <= 50 for sample in samples)
+
+
+def test_sample_retrieval_optimal_power_gain():
     samples = [
-        SampleItem(id="s1", name="Ilmenite", weight=5, value=10),
-        SampleItem(id="s2", name="Basalt", weight=10, value=20),
-        SampleItem(id="s3", name="Anorthosite", weight=3, value=15),
+        SampleItem(id="s1", name="Ilmenite", weight=5, power_value=100),
+        SampleItem(id="s2", name="Basalt", weight=10, power_value=150),
+        SampleItem(id="s3", name="Anorthosite", weight=3, power_value=80),
     ]
     req = SampleRetrievalRequest(
-        bag_capacity=8,
-        available_samples=samples,
-        player_sample_ids=["s1", "s3"]
+        bag_capacity=8, available_samples=samples, player_sample_ids=["s1", "s3"]
     )
     res = sample_retrieval(req)
+
     assert res["status"] == "OPTIMAL_LOADOUT"
-    assert res["player_total_value"] == 25
-    assert res["optimal_max_value"] == 25
+    assert res["player_total_weight"] == 8
+    assert res["optimal_total_weight"] == 8
+    assert res["power_gained"] == res["max_power_gain"] == 20.0
 
 
-def test_sample_retrieval_overweight():
+def test_sample_retrieval_suboptimal_power_gain():
     samples = [
-        SampleItem(id="s1", name="Ilmenite", weight=10, value=10),
+        SampleItem(id="s1", name="Ilmenite", weight=5, power_value=100),
+        SampleItem(id="s2", name="Basalt", weight=10, power_value=150),
+        SampleItem(id="s3", name="Anorthosite", weight=3, power_value=80),
     ]
     req = SampleRetrievalRequest(
-        bag_capacity=5,
-        available_samples=samples,
-        player_sample_ids=["s1"]
+        bag_capacity=8, available_samples=samples, player_sample_ids=["s3"]
     )
     res = sample_retrieval(req)
-    assert res["is_overweight"] is True
+
+    assert res["status"] == "SUBOPTIMAL_LOADOUT"
+    assert 0 < res["power_gained"] < res["max_power_gain"]
+
+
+def test_sample_retrieval_overweight_gives_no_power():
+    samples = [
+        SampleItem(id="s1", name="Ilmenite", weight=5, power_value=100),
+        SampleItem(id="s2", name="Basalt", weight=4, power_value=80),
+    ]
+    req = SampleRetrievalRequest(
+        bag_capacity=8, available_samples=samples, player_sample_ids=["s1", "s2"]
+    )
+    res = sample_retrieval(req)
+
     assert res["status"] == "PAYLOAD_OVERWEIGHT"
+    assert res["power_gained"] == 0
 
 
 # --- 6. Food Production (Weighted Activity Selection) ---

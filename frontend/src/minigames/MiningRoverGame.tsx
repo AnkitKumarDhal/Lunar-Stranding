@@ -1,5 +1,5 @@
 // frontend/src/minigames/MiningRoverGame.tsx
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   gameApi,
   type MiningRoverResponse,
@@ -28,17 +28,11 @@ const NODE_COORDS: Record<string, { x: number; y: number; label: string }> = {
   Excavation: { x: 440, y: 150, label: "EXCAVATION" },
 };
 
-// --- Sample Retrieval Items (0/1 Knapsack) ---
-const INITIAL_SAMPLES: SampleItem[] = [
-  { id: "s1", name: "Helium-3 Canister", weight: 2, value: 45 },
-  { id: "s2", name: "Ilmenite Titanium Ore", weight: 4, value: 35 },
-  { id: "s3", name: "Anorthosite Core", weight: 7, value: 60 },
-  { id: "s4", name: "Volcanic Orange Glass", weight: 5, value: 40 },
-  { id: "s5", name: "KREEP Basalt Specimen", weight: 6, value: 50 },
-  { id: "s6", name: "Shocked Breccia", weight: 3, value: 25 },
-];
+interface MiningRoverGameProps {
+  onPowerGained: (amount: number) => void;
+}
 
-export const MiningRoverGame = () => {
+export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
   const [activeTab, setActiveTab] = useState<"navigation" | "cargo">("navigation");
 
   // Navigation State
@@ -47,13 +41,35 @@ export const MiningRoverGame = () => {
   const [navLoading, setNavLoading] = useState(false);
   const [navError, setNavError] = useState<string | null>(null);
 
-  // Cargo Knapsack State
+  // Cargo knapsack state
+  const [samples, setSamples] = useState<SampleItem[]>([]);
   const [selectedSampleIds, setSelectedSampleIds] = useState<string[]>([]);
+  const [roverCapacity, setRoverCapacity] = useState(15);
   const [cargoResult, setCargoResult] = useState<SampleRetrievalResponse | null>(null);
-  const [cargoLoading, setCargoLoading] = useState(false);
+  const [cargoLoading, setCargoLoading] = useState(true);
   const [cargoError, setCargoError] = useState<string | null>(null);
 
-  const roverCapacity = 15;
+  const loadNewSamples = useCallback(async () => {
+    setCargoLoading(true);
+    setCargoError(null);
+    setSamples([]);
+    setSelectedSampleIds([]);
+    setCargoResult(null);
+
+    try {
+      const game = await gameApi.newSampleRetrievalGame();
+      setSamples(game.available_samples);
+      setRoverCapacity(game.bag_capacity);
+    } catch (err: unknown) {
+      setCargoError(err instanceof Error ? err.message : "Failed to generate sample field");
+    } finally {
+      setCargoLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNewSamples();
+  }, [loadNewSamples]);
 
   // --- Navigation Handlers ---
   const currentNavHead = navPath[navPath.length - 1];
@@ -92,29 +108,29 @@ export const MiningRoverGame = () => {
     }
   };
 
-  // --- Cargo Handlers ---
+  // --- Cargo handlers ---
   const toggleSample = (id: string) => {
-    setSelectedSampleIds((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id],
+    if (cargoResult || cargoLoading) return;
+    setCargoError(null);
+    setSelectedSampleIds((previous) =>
+      previous.includes(id) ? previous.filter((sampleId) => sampleId !== id) : [...previous, id],
     );
   };
 
   const handleCargoReset = () => {
     setSelectedSampleIds([]);
-    setCargoResult(null);
     setCargoError(null);
   };
 
   const handleCargoSubmit = async () => {
+    if (cargoLoading || cargoResult || !samples.length) return;
+
     setCargoLoading(true);
     setCargoError(null);
     try {
-      const res = await gameApi.submitSampleRetrieval(
-        INITIAL_SAMPLES,
-        selectedSampleIds,
-        roverCapacity,
-      );
-      setCargoResult(res);
+      const response = await gameApi.submitSampleRetrieval(samples, selectedSampleIds, roverCapacity);
+      setCargoResult(response);
+      onPowerGained(response.power_gained);
     } catch (err: unknown) {
       setCargoError(err instanceof Error ? err.message : "Loadout validation failed");
     } finally {
@@ -122,13 +138,9 @@ export const MiningRoverGame = () => {
     }
   };
 
-  const currentWeight = INITIAL_SAMPLES.filter((s) =>
-    selectedSampleIds.includes(s.id),
-  ).reduce((sum, s) => sum + s.weight, 0);
-
-  const currentValue = INITIAL_SAMPLES.filter((s) =>
-    selectedSampleIds.includes(s.id),
-  ).reduce((sum, s) => sum + s.value, 0);
+  const currentWeight = samples
+    .filter((sample) => selectedSampleIds.includes(sample.id))
+    .reduce((sum, sample) => sum + sample.weight, 0);
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -393,130 +405,96 @@ export const MiningRoverGame = () => {
       {/* TAB 2: SAMPLE RETRIEVAL (KNAPSACK) */}
       {activeTab === "cargo" && (
         <div className="flex flex-col space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-400">
-            <div>
-              <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Select high-value lunar samples to maximize points without exceeding the{" "}
-              <span className="text-amber-400 font-bold">{roverCapacity} kg</span> rover payload capacity (0/1 Knapsack).
-            </div>
+          <div className="text-xs text-slate-400">
+            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Choose samples within the {roverCapacity} kg cargo limit to recover as much power as possible (0/1 Knapsack).
           </div>
 
-          {/* Capacity Progress Bar */}
-          <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 flex flex-col space-y-2">
-            <div className="flex justify-between items-center text-xs font-mono">
-              <span className="text-slate-400">
-                CARGO BAY LOAD:{" "}
-                <span className={currentWeight > roverCapacity ? "text-rose-400 font-bold" : "text-amber-400 font-bold"}>
-                  {currentWeight} kg / {roverCapacity} kg
-                </span>
-              </span>
-              <span className="text-slate-400">
-                TOTAL VALUE: <span className="text-emerald-400 font-bold">+{currentValue} pts</span>
-              </span>
+          <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-2">
+            <div className="flex justify-between text-xs font-mono">
+              <span className="text-slate-400">CARGO LOAD: <span className={currentWeight > roverCapacity ? "text-rose-400 font-bold" : "text-amber-400 font-bold"}>{currentWeight} / {roverCapacity} kg</span></span>
+              <span className="text-slate-400">{selectedSampleIds.length} SAMPLES SELECTED</span>
             </div>
             <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-700">
               <div
-                className={`h-full transition-all duration-300 ${
-                  currentWeight > roverCapacity ? "bg-rose-500" : "bg-cyan-500"
-                }`}
+                className={`h-full transition-all ${currentWeight > roverCapacity ? "bg-rose-500" : "bg-cyan-500"}`}
                 style={{ width: `${Math.min(100, (currentWeight / roverCapacity) * 100)}%` }}
               />
             </div>
           </div>
 
-          {/* Sample Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
-            {INITIAL_SAMPLES.map((sample) => {
+            {samples.map((sample) => {
               const selected = selectedSampleIds.includes(sample.id);
               return (
-                <div
+                <button
                   key={sample.id}
+                  type="button"
                   onClick={() => toggleSample(sample.id)}
-                  className={`p-3 rounded-lg border transition-all cursor-pointer select-none ${
+                  disabled={cargoLoading || Boolean(cargoResult)}
+                  className={`p-3 rounded-lg border text-left transition-colors disabled:cursor-default ${
                     selected
-                      ? "bg-cyan-950/40 border-cyan-500/80 shadow-[0_0_12px_rgba(6,182,212,0.15)]"
-                      : "bg-slate-900/80 border-slate-800 hover:border-slate-700"
+                      ? "bg-cyan-950/40 border-cyan-500/80"
+                      : "bg-slate-900/80 border-slate-700 hover:border-cyan-700"
                   }`}
                 >
-                  <div className="flex items-start justify-between">
+                  <div className="flex items-start justify-between gap-2">
                     <span className="text-xs font-bold text-slate-100">{sample.name}</span>
-                    <input
-                      type="checkbox"
-                      checked={selected}
-                      readOnly
-                      className="accent-cyan-400 cursor-pointer pointer-events-none"
-                    />
+                    <span className={selected ? "text-cyan-300" : "text-slate-600"}>{selected ? "✓" : "○"}</span>
                   </div>
-                  <div className="flex justify-between items-center mt-2 text-[11px] font-mono">
+                  <div className="flex justify-between gap-2 mt-2 text-[11px] font-mono">
                     <span className="text-slate-400">Mass: <span className="text-amber-300">{sample.weight} kg</span></span>
-                    <span className="text-slate-400">Value: <span className="text-emerald-400">+{sample.value} pts</span></span>
+                    <span className="text-slate-400">Power value: <span className="text-emerald-400">+{sample.power_value}</span></span>
                   </div>
-                </div>
+                </button>
               );
             })}
+            {cargoLoading && samples.length === 0 && (
+              <div className="col-span-full py-8 text-center text-xs text-slate-400">GENERATING SAMPLE FIELD...</div>
+            )}
           </div>
 
-          {/* Cargo Controls */}
-          <div className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded border border-slate-800">
-            <span className="text-xs text-slate-400 font-mono">
-              Samples Selected: <span className="text-cyan-400 font-bold">{selectedSampleIds.length}</span>
-            </span>
-
+          <div className="flex flex-wrap justify-between items-center gap-2 bg-slate-900/60 p-2.5 rounded border border-slate-800">
+            <span className="text-xs text-slate-400 font-mono">Selected mass: <span className="text-cyan-400 font-bold">{currentWeight} kg</span></span>
             <div className="flex items-center gap-2">
               <button
                 onClick={handleCargoReset}
+                disabled={cargoLoading || Boolean(cargoResult) || selectedSampleIds.length === 0}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded border border-slate-600 disabled:opacity-40"
+              >RESET</button>
+              <button
+                onClick={() => void loadNewSamples()}
                 disabled={cargoLoading}
-                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded border border-slate-600 transition-colors"
-              >
-                RESET
-              </button>
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold rounded border border-cyan-700 disabled:opacity-40"
+              >NEW SAMPLE FIELD</button>
               <button
                 onClick={handleCargoSubmit}
-                disabled={cargoLoading || selectedSampleIds.length === 0}
-                className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-              >
-                {cargoLoading ? "VERIFYING..." : "LOAD SAMPLES"}
-              </button>
+                disabled={cargoLoading || Boolean(cargoResult) || selectedSampleIds.length === 0}
+                className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40"
+              >{cargoLoading ? "LOADING..." : "RECOVER POWER"}</button>
             </div>
           </div>
 
           {cargoError && (
-            <div className="text-xs text-rose-400 p-2 border border-rose-500/40 bg-rose-950/40 rounded">
-              {cargoError}
-            </div>
+            <div className="text-xs text-rose-400 p-2 border border-rose-500/40 bg-rose-950/40 rounded">{cargoError}</div>
           )}
 
           {cargoResult && (
             <div className="text-xs p-3 border border-slate-700 bg-slate-900/95 rounded space-y-2">
-              <div className="flex items-center justify-between">
-                <span
-                  className={`font-bold px-2 py-0.5 rounded text-[10px] tracking-wider ${
-                    cargoResult.status === "OPTIMAL_LOADOUT"
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : cargoResult.is_overweight
-                      ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
-                      : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                  }`}
-                >
-                  STATUS: {cargoResult.status}
-                </span>
-                <span className="text-slate-400 font-mono">
-                  Reward Multiplier: <span className="text-emerald-400 font-bold">{cargoResult.reward_multiplier}x</span>
-                </span>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className={`font-bold px-2 py-0.5 rounded text-[10px] tracking-wider ${
+                  cargoResult.status === "OPTIMAL_LOADOUT"
+                    ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
+                    : cargoResult.status === "PAYLOAD_OVERWEIGHT"
+                    ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+                    : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                }`}>STATUS: {cargoResult.status}</span>
+                <span className="text-emerald-400 font-mono font-bold">POWER RECOVERED: +{cargoResult.power_gained.toFixed(2)}</span>
               </div>
               <p className="text-slate-200">{cargoResult.message}</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
-                <div>
-                  <span className="text-slate-500 block">Your Cargo Value:</span>
-                  <span className="text-amber-400 font-bold">{cargoResult.player_total_value} pts</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Optimal Max Value:</span>
-                  <span className="text-emerald-400 font-bold">{cargoResult.optimal_max_value} pts</span>
-                </div>
-                <div>
-                  <span className="text-slate-500 block">Optimal Total Mass:</span>
-                  <span className="text-cyan-400 font-bold">{cargoResult.optimal_total_weight} kg</span>
-                </div>
+              <div className="flex flex-wrap gap-x-8 gap-y-1 pt-2 border-t border-slate-800 text-[11px] font-mono">
+                <span className="text-slate-400">Cargo: <span className="text-amber-300">{cargoResult.player_total_weight}/{cargoResult.bag_capacity} kg</span></span>
+                <span className="text-slate-400">Optimal cargo: <span className="text-cyan-300">{cargoResult.optimal_total_weight} kg</span></span>
+                <span className="text-slate-400">Maximum recovery: <span className="text-emerald-300">+{cargoResult.max_power_gain}</span></span>
               </div>
             </div>
           )}

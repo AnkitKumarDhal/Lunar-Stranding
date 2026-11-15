@@ -206,7 +206,7 @@ export const RoverWorkshopGame = ({ onPowerConsumed }: RoverWorkshopGameProps) =
             <div><span className="block text-slate-500">YOUR TIME</span><b className="text-amber-300">{result.player_time} min</b></div>
             <div><span className="block text-slate-500">OPTIMAL TIME</span><b className="text-emerald-300">{result.optimal.time} min</b></div>
             <div><span className="block text-slate-500">EXTRA TIME</span><b className="text-amber-300">+{result.time_difference} min</b></div>
-            <div><span className="block text-slate-500">OPTIMAL ROUTE</span><b className="text-cyan-300">{result.optimal.sequence.map((line, index) => `L${line}`).join(" → ")}</b></div>
+            <div><span className="block text-slate-500">OPTIMAL ROUTE</span><b className="text-cyan-300">{result.optimal.sequence.map((line) => `L${line}`).join(" → ")}</b></div>
           </div>
         </div>
       )}

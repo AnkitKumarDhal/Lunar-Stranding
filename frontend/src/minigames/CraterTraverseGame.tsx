@@ -32,7 +32,7 @@ export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps)
   });
 
   const edges = Object.entries(graph).flatMap(([from, neighbors]) =>
-    neighbors.map((to) => [from, to] as [string, string]),
+    neighbors.filter((to) => from < to).map((to) => [from, to] as [string, string]),
   );
 
   const loadNewGame = useCallback(async () => {
@@ -88,7 +88,7 @@ export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps)
   };
 
   const isEdgeTraversed = (from: string, to: string) =>
-    path.some((node, index) => index < path.length - 1 && node === from && path[index + 1] === to);
+    path.some((node, index) => index < path.length - 1 && ((node === from && path[index + 1] === to) || (node === to && path[index + 1] === from)));
 
   const displayNode = (node: string) => nodePositions[node]?.label ?? node;
 
@@ -107,33 +107,20 @@ export const CraterTraverseGame = ({ onPowerConsumed }: CraterTraverseGameProps)
       <div className="flex-1 min-h-[280px] bg-slate-900/90 border border-slate-700/80 rounded-lg p-3 relative flex items-center justify-center">
         {game ? (
           <svg viewBox="0 0 560 360" className="w-full h-full select-none">
-            <defs>
-              <marker id="crater-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" viewBox="0 0 8 8">
-                <path d="M0,0 L8,4 L0,8 Z" fill="#64748b" />
-              </marker>
-              <marker id="crater-arrow-active" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto" viewBox="0 0 8 8">
-                <path d="M0,0 L8,4 L0,8 Z" fill="#22d3ee" />
-              </marker>
-            </defs>
-
             {edges.map(([from, to]) => {
               const start = nodePositions[from];
               const end = nodePositions[to];
-              const dx = end.x - start.x;
-              const dy = end.y - start.y;
-              const distance = Math.hypot(dx, dy);
               const traversed = isEdgeTraversed(from, to);
 
               return (
                 <line
                   key={`${from}-${to}`}
-                  x1={start.x + (dx / distance) * 17}
-                  y1={start.y + (dy / distance) * 17}
-                  x2={end.x - (dx / distance) * 21}
-                  y2={end.y - (dy / distance) * 21}
+                  x1={start.x}
+                  y1={start.y}
+                  x2={end.x}
+                  y2={end.y}
                   stroke={traversed ? "#22d3ee" : "#475569"}
                   strokeWidth={traversed ? "3" : "1.5"}
-                  markerEnd={traversed ? "url(#crater-arrow-active)" : "url(#crater-arrow)"}
                 />
               );
             })}

@@ -20,36 +20,36 @@ import { RadioGame } from "./minigames/RadioGame";
 import { RoverWorkshopGame } from "./minigames/RoverWorkshopGame";
 
 const FACILITY_META: Record<FacilityType, { title: string; subtitle: string }> =
-  {
-    solar: {
-      title: "SOLAR MICROGRID ARRAY",
-      subtitle: "PRIM'S MST // CABLE ROUTING & MAST CALIBRATION",
-    },
-    water_rover: {
-      title: "WATER EXTRACTION ROVER",
-      subtitle: "DIJKSTRA // LEAST-ENERGY CRATER SLOPE NAVIGATION",
-    },
-    mining_rover: {
-      title: "PRESSURIZED MINING ROVER",
-      subtitle: "BELLMAN-FORD & 0/1 KNAPSACK // EXCAVATION & CARGO",
-    },
-    crater_sensors: {
-      title: "CRATER PERIMETER SENSORS",
-      subtitle: "BREADTH-FIRST SEARCH // SENSOR NODE DEPLOYMENT",
-    },
-    radio: {
-      title: "DEEP SPACE COMMS DISH",
-      subtitle: "RABIN-KARP & HUFFMAN // SIGNAL LOCK & DECODING",
-    },
-    greenhouse: {
-      title: "HYDROPONICS GREENHOUSE",
-      subtitle: "ACTIVITY SELECTION // NON-OVERLAPPING LED SCHEDULE",
-    },
-    garage: {
-      title: "ROVER SERVICING BAY",
-      subtitle: "ASSEMBLY LINE SCHEDULING // DIAGNOSTICS & REPAIR",
-    },
-  };
+{
+  solar: {
+    title: "SOLAR MICROGRID ARRAY",
+    subtitle: "PRIM'S MST // CABLE ROUTING & MAST CALIBRATION",
+  },
+  water_rover: {
+    title: "WATER EXTRACTION ROVER",
+    subtitle: "DIJKSTRA // LEAST-ENERGY CRATER SLOPE NAVIGATION",
+  },
+  mining_rover: {
+    title: "PRESSURIZED MINING ROVER",
+    subtitle: "BELLMAN-FORD & 0/1 KNAPSACK // EXCAVATION & CARGO",
+  },
+  crater_sensors: {
+    title: "CRATER PERIMETER SENSORS",
+    subtitle: "BREADTH-FIRST SEARCH // SENSOR NODE DEPLOYMENT",
+  },
+  radio: {
+    title: "DEEP SPACE COMMS DISH",
+    subtitle: "RABIN-KARP & HUFFMAN // SIGNAL LOCK & DECODING",
+  },
+  greenhouse: {
+    title: "HYDROPONICS GREENHOUSE",
+    subtitle: "ACTIVITY SELECTION // NON-OVERLAPPING LED SCHEDULE",
+  },
+  garage: {
+    title: "ROVER SERVICING BAY",
+    subtitle: "ASSEMBLY LINE SCHEDULING // DIAGNOSTICS & REPAIR",
+  },
+};
 
 export default function App() {
   const [activeFacility, setActiveFacility] = useState<FacilityType | null>(
@@ -64,8 +64,8 @@ export default function App() {
   });
 
   const [activeHazard] = useState<HazardPayload | null>(null);
-  const [power, setPower] = useState(68);
-  const [health, setHealth] = useState(80);
+  const [power, setPower] = useState(100);
+  const [health, setHealth] = useState(100);
 
   const handleToggleDailyTask = (key: keyof DailyTasksState) => {
     setDailyTasks((prev) => ({ ...prev, [key]: true }));
@@ -182,7 +182,13 @@ export default function App() {
             />
           )}
 
-          {activeFacility === "mining_rover" && <MiningRoverGame />}
+          {activeFacility === "mining_rover" && (
+            <MiningRoverGame
+              onPowerGained={(amount) =>
+                setPower((current) => Math.min(100, Number((current + amount).toFixed(2))))
+              }
+            />
+          )}
 
           {activeFacility === "radio" && <RadioGame />}
 

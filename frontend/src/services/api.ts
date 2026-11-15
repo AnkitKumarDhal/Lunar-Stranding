@@ -104,26 +104,21 @@ export interface SampleItem {
   id: string;
   name: string;
   weight: number;
-  value: number;
+  power_value: number;
+}
+
+export interface SampleRetrievalGameData {
+  bag_capacity: number;
+  available_samples: SampleItem[];
 }
 
 export interface SampleRetrievalResponse {
-  bag_capacity: number;
-  optimal: {
-    max_value: number;
-    total_weight: number;
-    sample_ids: string[];
-  };
-  optimal_max_value: number;
-  optimal_total_weight: number;
-  optimal_sample_ids: string[];
-  player_total_value: number;
-  player_total_weight: number;
-  is_overweight: boolean;
-  efficiency: number;
-  efficiency_percentage: number;
-  reward_multiplier: number;
   status: string;
+  bag_capacity: number;
+  player_total_weight: number;
+  optimal_total_weight: number;
+  power_gained: number;
+  max_power_gain: number;
   message: string;
 }
 
@@ -274,18 +269,18 @@ export const gameApi = {
     }),
 
   // 5. Sample Retrieval (0/1 Knapsack)
-  submitSampleRetrieval: (
-    samples: SampleItem[],
-    selectedIds: string[],
-    capacity: number = 15,
-  ) =>
+  newSampleRetrievalGame: () =>
+    request<SampleRetrievalGameData>("/minigames/sample-retrieval", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  submitSampleRetrieval: (samples: SampleItem[], selectedIds: string[], capacity: number) =>
     request<SampleRetrievalResponse>("/minigames/sample-retrieval", {
       method: "POST",
       body: JSON.stringify({
         bag_capacity: capacity,
         available_samples: samples,
         player_sample_ids: selectedIds,
-        session_id: "default",
       }),
     }),
 
