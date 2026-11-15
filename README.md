@@ -1,43 +1,83 @@
 # 🌕 Lunar Stranding
 
-**An Educational Algorithmic Survival Game Set at NASA's Artemis Base Camp**
+**An educational algorithmic survival game set at an Artemis-inspired lunar outpost**
 
-**Lunar Stranding** is an interactive visual novel and strategy survival game designed for players ages 7–12. Set on the rim of the **Shackleton Crater** at the Moon's South Pole, players step into the boots of the Base Commander after an emergency landing. Guided by a supportive onboard AI companion, players must survive a 5-to-7 Sol (lunar day) rescue timeline by managing base **Power** and **Astronaut Vitals** while solving real-world NASA engineering challenges powered by fundamental computer science algorithms.
+**Lunar Stranding** is an interactive story and strategy game set near **Shackleton Crater at the Moon's South Pole**. After an emergency landing, the player becomes the commander of a lunar outpost. Guided by an onboard AI companion, they must keep the base running and complete a seven-day survival mission while waiting for rescue.
+
+Players operate the outpost through short story sequences, a top-down base map and algorithm-based mini-games. Each mini-game turns a real computer science problem into a practical engineering task.
 
 ---
 
 ## 🌟 Key Features
 
-* **Real NASA Science & Habitat Design:** Explore authentic lunar outpost modules including the Exterior Suitport (mitigating razor-sharp lunar regolith), the ECLSS (Environmental Control and Life Support System), Hydroponic Botany Bays, the Pressurized Rover, and the Peaks of Eternal Light.
-* **Algorithm-Driven Mini-Games:** Every survival task is backed by a classic computer science algorithm running on a stateless FastAPI validation engine. Players learn efficiency and optimization naturally through gameplay rather than textbooks.
-* **Kid-Friendly Survival Pacing:** Built around the "Rule of Two" (short, punchy two-sentence dialogue beats), keeping reading fatigue low and engagement high while maintaining an exciting mission atmosphere.
-* **Resource & Vitals Management:** Balance base battery reserves (**Power**) against human maintenance (**Health/Vitals**) through daily $\frac{1}{6}\text{th}$ gravity resistance exercises, freeze-dried ration rehydration, and emergency hazard interrupts.
+- **Lunar outpost setting:** Explore facilities inspired by lunar surface operations, including the suitport, ECLSS, solar array, greenhouse, water rover, mining rover and rover workshop.
+- **Algorithm-based mini-games:** Solve graph, string, greedy and dynamic-programming challenges through interactive gameplay.
+- **Randomized challenges:** Several mini-games generate new maps, routes, signals, schedules or cargo items for replayability.
+- **AI-guided story:** Follow the narrative across seven in-game days. From Day 5 onward, complete the required daily mini-games before ending the day.
+- **Shared Power resource:** The HUD tracks Power from 0 to 100. Relevant mini-games consume Power, while downhill mining routes can regenerate it. Reaching zero triggers Game Over and a retry option.
+- **Saved progress:** Story progress and current Power are stored in the browser using `localStorage`.
+
+> **Current resource model:** Power is the game's implemented survival resource. A separate player Health/HP or Vitals system is not used.
 
 ---
 
 ## 🧠 Core Algorithms & Mission Mapping
 
-Each mini-game in the frontend (`frontend/src/minigames/`) communicates with a dedicated Python router (`backend/routers/`) that generates solvable puzzles, grades player efficiency, and returns optimal solutions:
+Each mini-game in `frontend/src/minigames/` communicates with a FastAPI router in `backend/routers/`. The API generates challenges and evaluates the player's solution against the relevant algorithm.
 
-| Mini-Game Module | Backend Router | Core Algorithm | Lunar Survival Application |
-| :--- | :--- | :--- | :--- |
-| **Solar Panels Grid** | `solar_panels.py` | **Prim's Algorithm** (Minimum Spanning Tree) | Connect vertical solar arrays along the Shackleton Crater rim using the minimum length of high-voltage cable without creating redundant loops. |
-| **Water Rover Navigation** | `water_rover.py` | **Bellman-Ford Algorithm** (Shortest Path) | Navigate the rover into freezing Permanent Shadow Regions (PSRs) to harvest ancient ice while avoiding energy-draining hazard zones. |
-| **Radio & Signal Lock** | `signal_match.py` | **Rabin-Karp Algorithm** (String/Pattern Matching) | Lock onto Earth Command's radio telemetry through solar storm interference by matching exact frequency wave patterns. |
-| **Binary Telemetry** | `signal_transmission.py` | **Huffman Coding** (Data Compression) | Compress and decode binary (`0`s and `1`s) rescue transmissions from Earth to save bandwidth and base power. |
-| **Hydroponic Botany** | `food_production.py` | **Activity Selection** (Greedy Scheduling) | Schedule non-overlapping LED light wavelengths to maximize plant growth and oxygen synthesis in the botany bay. |
-| **Rover Servicing** | `rover_workshop.py` | **Assembly Line Scheduling** (Dynamic Programming) | Route regolith-damaged rovers through automated cleaning and repair bays using the fastest, lowest-energy sequence. |
-| **Perimeter Sensors** | `crater_traverse.py` | **BFS / DFS Graph Traversal** | Deploy rovers to activate moonquake and solar particle early-warning sensors across crater nodes without looping. |
-| **Geological Extraction** | `sample_retrieval.py` & `mining_rover.py` | **0/1 Knapsack** (Dynamic Programming) | Select the highest-value lunar rock samples for radiation shielding without exceeding the pressurized rover's payload capacity ($15\text{ kg}$). |
+| Mini-game | Backend router | Core algorithm | Gameplay objective |
+|---|---|---|---|
+| **Solar Panels Grid** | `solar_panels.py` | **Prim's Minimum Spanning Tree** | Connect six panels arranged in a 2×3 grid using exactly five cables and the minimum total cable length. Cable weights are randomized. |
+| **Water Rover Navigation** | `water_rover.py` | **Dijkstra's Shortest Path** | Guide the rover from the Base to the Ice Deposit using the least-energy route. Edge costs are non-negative. |
+| **Radio Signal Matching** | `signal_match.py` | **Rabin–Karp Pattern Matching** | Find a target binary substring inside a larger signal by sliding a fixed-length window one bit at a time. |
+| **Radio Signal Decoding** | `signal_transmission.py` | **Huffman Coding** | Decode the binary response using the supplied character-to-code table. The current transmitted message is `RECEIVED`. |
+| **Greenhouse Scheduling** | `food_production.py` | **Greedy Activity Selection** | Choose the maximum number of non-overlapping greenhouse activities while respecting the 5 kW power-bus limit. |
+| **Rover Servicing** | `rover_workshop.py` | **Assembly Line Scheduling (Dynamic Programming)** | Choose between two servicing lines at each station to minimize total repair time, including entry, exit and transfer times. |
+| **Crater Sensor Traverse** | `crater_traverse.py` | **Breadth-First Search (BFS)** | Visit every sensor node using the fewest movements. The generated network contains ten connected crater nodes. |
+| **Mining Rover Navigation** | `mining_rover.py` | **Bellman–Ford Shortest Path** | Find a minimum-net-energy route to the Excavation site. Randomized directed edges can have positive, zero or negative costs; negative costs represent solar regeneration. |
+| **Lunar Sample Retrieval** | `sample_retrieval.py` | **0/1 Knapsack (Dynamic Programming)** | Select the most valuable combination of nine randomized lunar mineral samples without exceeding the 15 kg cargo limit. Each sample is taken whole or left behind. |
+
+### Power behaviour
+
+Power is a shared HUD resource, but the cost calculation is specific to each task. Route length, movement count, cable length, schedule energy or servicing time can affect the amount consumed. Mining navigation uses signed net energy: positive route cost consumes Power, while negative route cost regenerates it. Sample Retrieval is a value-and-weight puzzle and does not change Power.
 
 ---
 
-## 📅 Story Progression (Sol-by-Sol Overview)
+## 📅 Seven-Day Story Progression
 
-* **Sol 1 – Crash & Triage:** Enter through the Suitport to keep sharp lunar dust out of the airlocks, boot up the **ECLSS**, wire the vertical solar microgrid (**Prim's**), and establish initial radio contact with Earth (**Rabin-Karp** & **Huffman**).
-* **Sol 2 – The Dark Craters:** Configure hydroponic LED schedules (**Activity Selection**), pilot the ice-mining rover into the 15-Eiffel-Tower-deep Shackleton Crater PSR (**Bellman-Ford**), and make high-stakes power investments on the Peaks of Eternal Light.
-* **Sol 3 – The Hostile Environment:** Clean lunar dust from jammed rover joints (**Assembly Line DP**), deploy moonquake and radiation sensors (**Graph Traversal**), and board the Pressurized Rover to escape incoming charged micro-particles.
-* **Sol 4 & 5 – Surface Push & Extraction:** Harvest optimal lunar regolith and rock payloads for radiation shielding (**0/1 Knapsack**), survive solar flare interrupts, and lock the final landing beacon for the Earth rescue lander.
+The first four days introduce the outpost and its systems through guided missions. After the player learns the core operations, Days 5–7 use a daily checklist of required mini-games.
+
+| Day | Story and required activities |
+|---|---|
+| **Day 1 — Landing & Communication** | Reach the base through the suitport, bring the outpost online, connect the solar panels, match the radio signal and decode Earth's response. |
+| **Day 2 — Water & Food** | Schedule greenhouse activities and navigate the Water Rover to the Ice Deposit. The solar grid can also be offered as an optional activity. |
+| **Day 3 — Maintenance & Sensors** | Schedule greenhouse activities, service the Water Rover, collect water and activate all crater sensors. The crew then prepares to travel toward the mining site. |
+| **Day 4 — Mining & Collection** | Navigate the Mining Rover to the Excavation site and select lunar mineral samples that fit within the cargo limit. |
+| **Day 5 — Full Autonomy** | Complete Greenhouse Scheduling, Water Retrieval and Crater Sensor Traverse. |
+| **Day 6 — Maintenance & Mining** | Complete Rover Servicing, Mining Navigation and Lunar Sample Retrieval. |
+| **Day 7 — Final Operations** | Complete Solar Panel Connections, Radio Signal Matching and Signal Decoding. Finishing all three leads to the final AI dialogue and **MISSION SUCCESS** screen. |
+
+For Days 5–7, the **Daily Operations** panel lists the three required mini-games and tracks completion. A valid optimal or suboptimal result counts as completed; an invalid or incorrect attempt does not. The **Eat / Rest / End Day** action remains disabled until all three required activities are complete.
+
+---
+
+## ⚡ Power, Progress and Game States
+
+- The Power HUD starts at **100** and is clamped between 0 and 100.
+- Mini-games that use Power report their cost or signed Power change to the main application, which updates the HUD.
+- A negative Mining Rover route cost can restore Power through solar regeneration.
+- When Power reaches **0**, the game displays **GAME OVER**. **RETRY** restarts the mission from Day 1 and resets Power.
+- Completing the required operations on Day 7 leads to the final **MISSION SUCCESS** screen.
+- Story progress and Power are saved in browser `localStorage` so a page refresh does not automatically restart the run.
+
+---
+
+## 🧰 Technology Stack
+
+- **Frontend:** React, TypeScript, Vite and Tailwind CSS.
+- **Backend:** Python, FastAPI and Pydantic.
+- **Algorithms:** Graph algorithms, string matching, greedy scheduling and dynamic programming.
+- **Testing:** Pytest for backend logic and API behaviour; TypeScript/Vite build and Oxlint for the frontend.
 
 ---
 
@@ -46,36 +86,36 @@ Each mini-game in the frontend (`frontend/src/minigames/`) communicates with a d
 ```text
 Lunar-Stranding/
 ├── backend/
-│   ├── main.py                      # FastAPI application entry point & CORS setup
-│   ├── requirements.txt             # Python dependencies (FastAPI, Pydantic, Uvicorn)
-│   ├── routers/                     # Algorithmic validation & puzzle generation endpoints
-│   │   ├── crater_traverse.py       # Sensor network graph traversal
-│   │   ├── food_production.py       # Hydroponic LED greedy scheduling
-│   │   ├── mining_rover.py          # Lunar rock extraction logic
-│   │   ├── rover_workshop.py        # Assembly line DP servicing
-│   │   ├── sample_retrieval.py      # 0/1 Knapsack payload optimizer
-│   │   ├── signal_match.py          # Rabin-Karp frequency matching
-│   │   ├── signal_transmission.py   # Binary/Huffman decoding
-│   │   ├── solar_panels.py          # Prim's MST microgrid generator & validator
-│   │   └── water_rover.py           # Bellman-Ford PSR pathfinding
+│   ├── main.py                         # FastAPI application and router registration
+│   ├── requirements.txt                # Python dependencies
+│   ├── routers/
+│   │   ├── crater_traverse.py           # BFS sensor traversal
+│   │   ├── food_production.py           # Greedy Activity Selection
+│   │   ├── mining_rover.py              # Bellman–Ford navigation
+│   │   ├── rover_workshop.py            # Assembly Line Scheduling DP
+│   │   ├── sample_retrieval.py          # 0/1 Knapsack mineral selection
+│   │   ├── signal_match.py              # Rabin–Karp binary pattern search
+│   │   ├── signal_transmission.py       # Huffman challenge generation and decoding
+│   │   ├── solar_panels.py              # Prim's Minimum Spanning Tree
+│   │   └── water_rover.py               # Dijkstra water-route navigation
 │   └── tests/
-│       ├── test_all_minigames.py    # Automated unit tests for all algorithm endpoints
-│       └── verify_live_server.py    # Live API health & endpoint verification
+│       ├── test_all_minigames.py        # Backend algorithm and endpoint tests
+│       └── verify_live_server.py        # Live API checks
 └── frontend/
-    ├── index.html                   # Web entry point
-    ├── package.json                 # Node dependencies & Vite scripts
-    ├── vite.config.ts               # Vite bundler configuration
+    ├── index.html                       # Web entry point
+    ├── package.json                    # Frontend scripts and dependencies
+    ├── vite.config.ts                  # Vite configuration
     └── src/
-        ├── App.tsx                  # Main game state & loop controller
-        ├── components/              # Core UI & Visual Novel HUD elements
+        ├── App.tsx                     # Main game state, power and story progression
+        ├── components/
         │   ├── HazardInterruptModal.tsx
-        │   ├── Hud.tsx              # Power, Vitals, and Sol tracker
-        │   ├── MapBoxes.tsx         # Interactive top-down NASA habitat layout
-        │   ├── MinigameLayout.tsx   # Wrapper for algorithmic puzzles
-        │   ├── StoryDialogue.tsx    # "Rule of Two" visual novel dialogue box
-        │   ├── TacticalTabletModal.tsx
-        │   └── UiPrimitives.tsx
-        ├── minigames/               # Interactive React components for each algorithm
+        │   ├── Hud.tsx                 # Power HUD and Daily Operations panel
+        │   ├── MapBoxes.tsx            # Interactive outpost map and facilities
+        │   ├── MinigameLayout.tsx      # Shared mini-game layout
+        │   ├── StoryDialogue.tsx       # AI dialogue and story controls
+        │   ├── TacticalTabletModal.tsx # Facility mini-game container
+        │   └── UiPrimitives.tsx        # Shared UI elements
+        ├── minigames/
         │   ├── CraterTraverseGame.tsx
         │   ├── FoodProductionGame.tsx
         │   ├── MiningRoverGame.tsx
@@ -84,11 +124,13 @@ Lunar-Stranding/
         │   ├── SolarPanelsGame.tsx
         │   └── WaterRoverGame.tsx
         ├── services/
-        │   └── api.ts               # Frontend-to-FastAPI HTTP client
+        │   └── api.ts                  # Frontend-to-FastAPI client and types
         ├── story/
-        │   └── storyFlow.ts         # Day-by-day narrative script & state transitions
-        └── types/
-            └── game.ts              # TypeScript interfaces for requests & game state
+        │   └── storyFlow.ts            # Day-by-day dialogue and mission flow
+        ├── types/
+        │   └── game.ts                 # Shared TypeScript types
+        ├── index.css
+        └── theme.css
 ```
 
 ---
@@ -96,36 +138,75 @@ Lunar-Stranding/
 ## 🚀 Getting Started
 
 ### Prerequisites
-* **Python:** `3.10+` (or Anaconda environment)
-* **Node.js:** `18+` (LTS recommended) and `npm`
 
-### 1. Run the Backend Server (FastAPI)
-Open a terminal and navigate to the `backend` directory:
+- **Python:** 3.10 or newer
+- **Node.js:** 20.19+ or 22.12+
+- **npm**
+
+### 1. Start the Backend (FastAPI)
+
+Open a terminal in the project directory:
 
 ```powershell
 cd backend
+python -m venv .venv
+```
+
+Activate the environment on Windows:
+
+```powershell
+.venv\Scripts\Activate.ps1
+```
+
+Install the dependencies and start the API:
+
+```powershell
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
-*The backend API will start at `http://127.0.0.1:8000`. You can view the interactive Swagger API documentation at `http://127.0.0.1:8000/docs`.*
 
-### 2. Run the Frontend Client (React + Vite)
-Open a second terminal and navigate to the `frontend` directory:
+The backend runs at `http://127.0.0.1:8000`. Interactive API documentation is available at `http://127.0.0.1:8000/docs`.
+
+### 2. Start the Frontend (React + Vite)
+
+Open a second terminal in the project directory:
 
 ```powershell
 cd frontend
 npm install
 npm run dev
 ```
-*Click the local URL printed in your terminal (typically `http://localhost:5173`) to launch **Lunar Stranding** in your browser.*
+
+Open the local URL printed by Vite (usually `http://localhost:5173`).
+
+### 3. Run the Frontend Checks
+
+From the `frontend` directory:
+
+```powershell
+npm run build
+npm run lint
+```
 
 ---
 
-## 🧪 Running Tests
+## 🧪 Running Backend Tests
 
-To verify all algorithm engines and edge-case validations on the backend:
+From the project directory:
 
 ```powershell
 cd backend
 pytest tests/test_all_minigames.py
 ```
+
+To verify the API against a running local server, start Uvicorn in one terminal and run:
+
+```powershell
+python tests/verify_live_server.py
+```
+
+---
+
+## 📌 Project Scope
+
+Lunar Stranding is an educational game prototype. Its mini-games demonstrate algorithmic ideas through simplified lunar-outpost scenarios; they are not a full engineering simulation or an official NASA product. The campaign currently focuses on Power management, algorithm challenges, daily objectives and story progression.
