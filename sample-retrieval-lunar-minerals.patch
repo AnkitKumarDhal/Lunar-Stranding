@@ -1,0 +1,326 @@
+diff --git a/backend/routers/sample_retrieval.py b/backend/routers/sample_retrieval.py
+index 318b62e..13b788f 100644
+--- a/backend/routers/sample_retrieval.py
++++ b/backend/routers/sample_retrieval.py
+@@ -5,21 +5,18 @@ from pydantic import BaseModel
+ 
+ router = APIRouter(prefix="/api/minigames", tags=["sample-retrieval"])
+ 
+-SAMPLE_NAMES = [
+-    "Helium-3 Canister", "Ilmenite Ore", "Anorthosite Core",
+-    "Volcanic Glass", "KREEP Basalt", "Shocked Breccia",
+-    "Water Ice Sample", "Rare Earth Regolith", "Titanium Fragment",
+-    "Apatite Crystal", "Pyroclastic Glass", "Solar Wind Trap",
+-    "Thorium Grain", "Platinum Dust",
++MINERAL_NAMES = [
++    "Ilmenite", "Anorthite", "Pyroxene", "Olivine", "Plagioclase Feldspar",
++    "Armalcolite", "Spinel", "Chromite", "Zircon", "Apatite",
++    "Tranquillityite", "Troilite", "Whitlockite", "Pigeonite", "Orthopyroxene",
+ ]
+-MAX_POWER_GAIN = 20.0
+ 
+ 
+ class SampleItem(BaseModel):
+     id: str
+     name: str
+     weight: int
+-    power_value: int
++    value: int
+ 
+ 
+ class SampleRetrievalRequest(BaseModel):
+@@ -29,20 +26,18 @@ class SampleRetrievalRequest(BaseModel):
+ 
+ 
+ def generate_samples(capacity: int) -> list[SampleItem]:
+-    """Create a fresh set of ten samples with randomized mass and power value."""
++    """Generate nine lunar minerals with random weights and values."""
+     return [
+         SampleItem(
+-            id=f"s{i + 1}",
+-            name=name,
+-            weight=random.randint(1, capacity),
+-            power_value=random.randint(10, 50),
++            id=f"s{i + 1}", name=name,
++            weight=random.randint(1, capacity), value=random.randint(10, 50),
+         )
+-        for i, name in enumerate(random.sample(SAMPLE_NAMES, 10))
++        for i, name in enumerate(random.sample(MINERAL_NAMES, 9))
+     ]
+ 
+ 
+-def knapsack(samples: list[SampleItem], capacity: int) -> tuple[int, int, list[str]]:
+-    """Return the maximum power value, its total weight, and selected sample IDs."""
++def knapsack(samples: list[SampleItem], capacity: int) -> tuple[int, int]:
++    """Return the best total value and the weight of that loadout."""
+     dp = [[0] * (capacity + 1) for _ in range(len(samples) + 1)]
+ 
+     for i, sample in enumerate(samples, 1):
+@@ -51,20 +46,18 @@ def knapsack(samples: list[SampleItem], capacity: int) -> tuple[int, int, list[s
+             if sample.weight <= weight:
+                 dp[i][weight] = max(
+                     dp[i][weight],
+-                    dp[i - 1][weight - sample.weight] + sample.power_value,
++                    dp[i - 1][weight - sample.weight] + sample.value,
+                 )
+ 
+-    chosen = []
++    optimal_weight = 0
+     remaining = capacity
+     for i in range(len(samples), 0, -1):
+-        if dp[i][remaining] != dp[i - 1][remaining]:
++        if dp[i][remaining] > dp[i - 1][remaining]:
+             sample = samples[i - 1]
+-            chosen.append(sample.id)
++            optimal_weight += sample.weight
+             remaining -= sample.weight
+ 
+-    chosen.reverse()
+-    weight = sum(sample.weight for sample in samples if sample.id in chosen)
+-    return dp[-1][capacity], weight, chosen
++    return dp[-1][capacity], optimal_weight
+ 
+ 
+ @router.post("/sample-retrieval")
+@@ -81,13 +74,13 @@ def sample_retrieval(req: SampleRetrievalRequest):
+ 
+     item_map = {}
+     for sample in samples:
+-        if sample.weight <= 0 or sample.power_value <= 0:
+-            raise HTTPException(status_code=400, detail="Sample weight and power value must be positive")
++        if sample.weight <= 0 or sample.value <= 0:
++            raise HTTPException(status_code=400, detail="Sample weight and value must be positive")
+         if sample.id in item_map:
+             raise HTTPException(status_code=400, detail=f"Duplicate sample ID: {sample.id}")
+         item_map[sample.id] = sample
+ 
+-    optimal_value, optimal_weight, _ = knapsack(samples, capacity)
++    optimal_value, optimal_weight = knapsack(samples, capacity)
+     player_weight = 0
+     player_value = 0
+     seen = set()
+@@ -100,12 +93,9 @@ def sample_retrieval(req: SampleRetrievalRequest):
+         seen.add(sample_id)
+         sample = item_map[sample_id]
+         player_weight += sample.weight
+-        player_value += sample.power_value
++        player_value += sample.value
+ 
+     overweight = player_weight > capacity
+-    power_gained = 0.0 if overweight or optimal_value == 0 else round(
+-        MAX_POWER_GAIN * player_value / optimal_value, 2
+-    )
+     status = (
+         "PAYLOAD_OVERWEIGHT" if overweight
+         else "OPTIMAL_LOADOUT" if player_value == optimal_value
+@@ -113,18 +103,18 @@ def sample_retrieval(req: SampleRetrievalRequest):
+     )
+ 
+     if overweight:
+-        message = f"Cargo overloaded ({player_weight}/{capacity} kg). No power recovered."
++        message = f"Cargo overloaded ({player_weight}/{capacity} kg). Remove some samples."
+     elif status == "OPTIMAL_LOADOUT":
+-        message = f"Optimal cargo recovered. +{power_gained} power restored."
++        message = f"Optimal loadout! Maximum value {player_value} within the cargo limit."
+     else:
+-        message = f"+{power_gained} of {MAX_POWER_GAIN:g} possible power restored. A better loadout can recover more."
++        message = f"Valid loadout: value {player_value}. The best possible value is {optimal_value}."
+ 
+     return {
+         "status": status,
+         "bag_capacity": capacity,
+         "player_total_weight": player_weight,
++        "player_total_value": player_value,
+         "optimal_total_weight": optimal_weight,
+-        "power_gained": power_gained,
+-        "max_power_gain": MAX_POWER_GAIN,
++        "optimal_total_value": optimal_value,
+         "message": message,
+     }
+diff --git a/backend/tests/test_all_minigames.py b/backend/tests/test_all_minigames.py
+index 3e7c20f..65b4f61 100644
+--- a/backend/tests/test_all_minigames.py
++++ b/backend/tests/test_all_minigames.py
+@@ -424,17 +424,22 @@ def test_sample_retrieval_generates_random_samples():
+     samples = res["available_samples"]
+ 
+     assert res["bag_capacity"] == 15
+-    assert len(samples) == 10
+-    assert len({sample.id for sample in samples}) == 10
++    assert len(samples) == 9
++    assert len({sample.id for sample in samples}) == 9
+     assert all(1 <= sample.weight <= 15 for sample in samples)
+-    assert all(10 <= sample.power_value <= 50 for sample in samples)
++    assert all(10 <= sample.value <= 50 for sample in samples)
++    assert all(sample.name in {
++        "Ilmenite", "Anorthite", "Pyroxene", "Olivine", "Plagioclase Feldspar",
++        "Armalcolite", "Spinel", "Chromite", "Zircon", "Apatite",
++        "Tranquillityite", "Troilite", "Whitlockite", "Pigeonite", "Orthopyroxene",
++    } for sample in samples)
+ 
+ 
+-def test_sample_retrieval_optimal_power_gain():
++def test_sample_retrieval_optimal_loadout():
+     samples = [
+-        SampleItem(id="s1", name="Ilmenite", weight=5, power_value=100),
+-        SampleItem(id="s2", name="Basalt", weight=10, power_value=150),
+-        SampleItem(id="s3", name="Anorthosite", weight=3, power_value=80),
++        SampleItem(id="s1", name="Ilmenite", weight=5, value=100),
++        SampleItem(id="s2", name="Anorthite", weight=10, value=150),
++        SampleItem(id="s3", name="Pyroxene", weight=3, value=80),
+     ]
+     req = SampleRetrievalRequest(
+         bag_capacity=8, available_samples=samples, player_sample_ids=["s1", "s3"]
+@@ -442,16 +447,16 @@ def test_sample_retrieval_optimal_power_gain():
+     res = sample_retrieval(req)
+ 
+     assert res["status"] == "OPTIMAL_LOADOUT"
+-    assert res["player_total_weight"] == 8
+-    assert res["optimal_total_weight"] == 8
+-    assert res["power_gained"] == res["max_power_gain"] == 20.0
++    assert res["player_total_weight"] == res["optimal_total_weight"] == 8
++    assert res["player_total_value"] == res["optimal_total_value"] == 180
++    assert "power_gained" not in res
+ 
+ 
+-def test_sample_retrieval_suboptimal_power_gain():
++def test_sample_retrieval_suboptimal_loadout():
+     samples = [
+-        SampleItem(id="s1", name="Ilmenite", weight=5, power_value=100),
+-        SampleItem(id="s2", name="Basalt", weight=10, power_value=150),
+-        SampleItem(id="s3", name="Anorthosite", weight=3, power_value=80),
++        SampleItem(id="s1", name="Ilmenite", weight=5, value=100),
++        SampleItem(id="s2", name="Anorthite", weight=10, value=150),
++        SampleItem(id="s3", name="Pyroxene", weight=3, value=80),
+     ]
+     req = SampleRetrievalRequest(
+         bag_capacity=8, available_samples=samples, player_sample_ids=["s3"]
+@@ -459,13 +464,14 @@ def test_sample_retrieval_suboptimal_power_gain():
+     res = sample_retrieval(req)
+ 
+     assert res["status"] == "SUBOPTIMAL_LOADOUT"
+-    assert 0 < res["power_gained"] < res["max_power_gain"]
++    assert res["player_total_value"] == 80
++    assert res["optimal_total_value"] == 180
+ 
+ 
+-def test_sample_retrieval_overweight_gives_no_power():
++def test_sample_retrieval_overweight_loadout():
+     samples = [
+-        SampleItem(id="s1", name="Ilmenite", weight=5, power_value=100),
+-        SampleItem(id="s2", name="Basalt", weight=4, power_value=80),
++        SampleItem(id="s1", name="Ilmenite", weight=5, value=100),
++        SampleItem(id="s2", name="Anorthite", weight=4, value=80),
+     ]
+     req = SampleRetrievalRequest(
+         bag_capacity=8, available_samples=samples, player_sample_ids=["s1", "s2"]
+@@ -473,7 +479,8 @@ def test_sample_retrieval_overweight_gives_no_power():
+     res = sample_retrieval(req)
+ 
+     assert res["status"] == "PAYLOAD_OVERWEIGHT"
+-    assert res["power_gained"] == 0
++    assert res["player_total_weight"] == 9
++    assert "power_gained" not in res
+ 
+ 
+ # --- 6. Food Production (Weighted Activity Selection) ---
+diff --git a/frontend/src/minigames/MiningRoverGame.tsx b/frontend/src/minigames/MiningRoverGame.tsx
+index d84afc4..18db482 100644
+--- a/frontend/src/minigames/MiningRoverGame.tsx
++++ b/frontend/src/minigames/MiningRoverGame.tsx
+@@ -145,7 +145,6 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
+     try {
+       const response = await gameApi.submitSampleRetrieval(samples, selectedSampleIds, roverCapacity);
+       setCargoResult(response);
+-      onPowerChange(response.power_gained);
+     } catch (err: unknown) {
+       setCargoError(err instanceof Error ? err.message : "Loadout validation failed");
+     } finally {
+@@ -153,9 +152,9 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
+     }
+   };
+ 
+-  const currentWeight = samples
+-    .filter((sample) => selectedSampleIds.includes(sample.id))
+-    .reduce((sum, sample) => sum + sample.weight, 0);
++  const selectedSamples = samples.filter((sample) => selectedSampleIds.includes(sample.id));
++  const currentWeight = selectedSamples.reduce((sum, sample) => sum + sample.weight, 0);
++  const currentValue = selectedSamples.reduce((sum, sample) => sum + sample.value, 0);
+ 
+   return (
+     <div className="flex flex-col h-full space-y-4">
+@@ -419,13 +418,13 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
+       {activeTab === "cargo" && (
+         <div className="flex flex-col space-y-4">
+           <div className="text-xs text-slate-400">
+-            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Choose samples within the {roverCapacity} kg cargo limit to recover as much power as possible (0/1 Knapsack).
++            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Choose the most valuable lunar minerals without exceeding the {roverCapacity} kg cargo limit (0/1 Knapsack).
+           </div>
+ 
+           <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-2">
+             <div className="flex justify-between text-xs font-mono">
+               <span className="text-slate-400">CARGO LOAD: <span className={currentWeight > roverCapacity ? "text-rose-400 font-bold" : "text-amber-400 font-bold"}>{currentWeight} / {roverCapacity} kg</span></span>
+-              <span className="text-slate-400">{selectedSampleIds.length} SAMPLES SELECTED</span>
++              <span className="text-slate-400">TOTAL VALUE: <span className="text-emerald-400 font-bold">{currentValue}</span></span>
+             </div>
+             <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-700">
+               <div
+@@ -456,7 +455,7 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
+                   </div>
+                   <div className="flex justify-between gap-2 mt-2 text-[11px] font-mono">
+                     <span className="text-slate-400">Mass: <span className="text-amber-300">{sample.weight} kg</span></span>
+-                    <span className="text-slate-400">Power value: <span className="text-emerald-400">+{sample.power_value}</span></span>
++                    <span className="text-slate-400">Value: <span className="text-emerald-400">{sample.value}</span></span>
+                   </div>
+                 </button>
+               );
+@@ -483,7 +482,7 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
+                 onClick={handleCargoSubmit}
+                 disabled={cargoLoading || Boolean(cargoResult) || selectedSampleIds.length === 0}
+                 className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40"
+-              >{cargoLoading ? "LOADING..." : "RECOVER POWER"}</button>
++              >{cargoLoading ? "LOADING..." : "SUBMIT LOADOUT"}</button>
+             </div>
+           </div>
+ 
+@@ -501,13 +500,13 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
+                     ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
+                     : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
+                 }`}>STATUS: {cargoResult.status}</span>
+-                <span className="text-emerald-400 font-mono font-bold">POWER RECOVERED: +{cargoResult.power_gained.toFixed(2)}</span>
++                <span className="text-emerald-400 font-mono font-bold">VALUE RECOVERED: {cargoResult.player_total_value}</span>
+               </div>
+               <p className="text-slate-200">{cargoResult.message}</p>
+               <div className="flex flex-wrap gap-x-8 gap-y-1 pt-2 border-t border-slate-800 text-[11px] font-mono">
+                 <span className="text-slate-400">Cargo: <span className="text-amber-300">{cargoResult.player_total_weight}/{cargoResult.bag_capacity} kg</span></span>
+                 <span className="text-slate-400">Optimal cargo: <span className="text-cyan-300">{cargoResult.optimal_total_weight} kg</span></span>
+-                <span className="text-slate-400">Maximum recovery: <span className="text-emerald-300">+{cargoResult.max_power_gain}</span></span>
++                <span className="text-slate-400">Best possible value: <span className="text-emerald-300">{cargoResult.optimal_total_value}</span></span>
+               </div>
+             </div>
+           )}
+diff --git a/frontend/src/services/api.ts b/frontend/src/services/api.ts
+index fb08134..166485e 100644
+--- a/frontend/src/services/api.ts
++++ b/frontend/src/services/api.ts
+@@ -84,7 +84,7 @@ export interface SampleItem {
+   id: string;
+   name: string;
+   weight: number;
+-  power_value: number;
++  value: number;
+ }
+ 
+ export interface SampleRetrievalGameData {
+@@ -96,9 +96,9 @@ export interface SampleRetrievalResponse {
+   status: string;
+   bag_capacity: number;
+   player_total_weight: number;
++  player_total_value: number;
+   optimal_total_weight: number;
+-  power_gained: number;
+-  max_power_gain: number;
++  optimal_total_value: number;
+   message: string;
+ }
+ 

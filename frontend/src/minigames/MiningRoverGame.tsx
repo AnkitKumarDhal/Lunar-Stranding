@@ -145,7 +145,6 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
     try {
       const response = await gameApi.submitSampleRetrieval(samples, selectedSampleIds, roverCapacity);
       setCargoResult(response);
-      onPowerChange(response.power_gained);
     } catch (err: unknown) {
       setCargoError(err instanceof Error ? err.message : "Loadout validation failed");
     } finally {
@@ -153,9 +152,9 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
     }
   };
 
-  const currentWeight = samples
-    .filter((sample) => selectedSampleIds.includes(sample.id))
-    .reduce((sum, sample) => sum + sample.weight, 0);
+  const selectedSamples = samples.filter((sample) => selectedSampleIds.includes(sample.id));
+  const currentWeight = selectedSamples.reduce((sum, sample) => sum + sample.weight, 0);
+  const currentValue = selectedSamples.reduce((sum, sample) => sum + sample.value, 0);
 
   return (
     <div className="flex flex-col h-full space-y-4">
@@ -419,13 +418,13 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
       {activeTab === "cargo" && (
         <div className="flex flex-col space-y-4">
           <div className="text-xs text-slate-400">
-            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Choose samples within the {roverCapacity} kg cargo limit to recover as much power as possible (0/1 Knapsack).
+            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Choose the most valuable lunar minerals without exceeding the {roverCapacity} kg cargo limit (0/1 Knapsack).
           </div>
 
           <div className="bg-slate-900 p-3 rounded-lg border border-slate-800 space-y-2">
             <div className="flex justify-between text-xs font-mono">
               <span className="text-slate-400">CARGO LOAD: <span className={currentWeight > roverCapacity ? "text-rose-400 font-bold" : "text-amber-400 font-bold"}>{currentWeight} / {roverCapacity} kg</span></span>
-              <span className="text-slate-400">{selectedSampleIds.length} SAMPLES SELECTED</span>
+              <span className="text-slate-400">TOTAL VALUE: <span className="text-emerald-400 font-bold">{currentValue}</span></span>
             </div>
             <div className="w-full bg-slate-950 h-3 rounded-full overflow-hidden border border-slate-700">
               <div
@@ -456,7 +455,7 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
                   </div>
                   <div className="flex justify-between gap-2 mt-2 text-[11px] font-mono">
                     <span className="text-slate-400">Mass: <span className="text-amber-300">{sample.weight} kg</span></span>
-                    <span className="text-slate-400">Power value: <span className="text-emerald-400">+{sample.power_value}</span></span>
+                    <span className="text-slate-400">Value: <span className="text-emerald-400">{sample.value}</span></span>
                   </div>
                 </button>
               );
@@ -483,7 +482,7 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
                 onClick={handleCargoSubmit}
                 disabled={cargoLoading || Boolean(cargoResult) || selectedSampleIds.length === 0}
                 className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40"
-              >{cargoLoading ? "LOADING..." : "RECOVER POWER"}</button>
+              >{cargoLoading ? "LOADING..." : "SUBMIT LOADOUT"}</button>
             </div>
           </div>
 
@@ -501,13 +500,13 @@ export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
                     ? "bg-rose-500/20 text-rose-400 border border-rose-500/40"
                     : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
                 }`}>STATUS: {cargoResult.status}</span>
-                <span className="text-emerald-400 font-mono font-bold">POWER RECOVERED: +{cargoResult.power_gained.toFixed(2)}</span>
+                <span className="text-emerald-400 font-mono font-bold">VALUE RECOVERED: {cargoResult.player_total_value}</span>
               </div>
               <p className="text-slate-200">{cargoResult.message}</p>
               <div className="flex flex-wrap gap-x-8 gap-y-1 pt-2 border-t border-slate-800 text-[11px] font-mono">
                 <span className="text-slate-400">Cargo: <span className="text-amber-300">{cargoResult.player_total_weight}/{cargoResult.bag_capacity} kg</span></span>
                 <span className="text-slate-400">Optimal cargo: <span className="text-cyan-300">{cargoResult.optimal_total_weight} kg</span></span>
-                <span className="text-slate-400">Maximum recovery: <span className="text-emerald-300">+{cargoResult.max_power_gain}</span></span>
+                <span className="text-slate-400">Best possible value: <span className="text-emerald-300">{cargoResult.optimal_total_value}</span></span>
               </div>
             </div>
           )}

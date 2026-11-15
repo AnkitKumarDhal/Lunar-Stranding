@@ -424,17 +424,22 @@ def test_sample_retrieval_generates_random_samples():
     samples = res["available_samples"]
 
     assert res["bag_capacity"] == 15
-    assert len(samples) == 10
-    assert len({sample.id for sample in samples}) == 10
+    assert len(samples) == 9
+    assert len({sample.id for sample in samples}) == 9
     assert all(1 <= sample.weight <= 15 for sample in samples)
-    assert all(10 <= sample.power_value <= 50 for sample in samples)
+    assert all(10 <= sample.value <= 50 for sample in samples)
+    assert all(sample.name in {
+        "Ilmenite", "Anorthite", "Pyroxene", "Olivine", "Plagioclase Feldspar",
+        "Armalcolite", "Spinel", "Chromite", "Zircon", "Apatite",
+        "Tranquillityite", "Troilite", "Whitlockite", "Pigeonite", "Orthopyroxene",
+    } for sample in samples)
 
 
-def test_sample_retrieval_optimal_power_gain():
+def test_sample_retrieval_optimal_loadout():
     samples = [
-        SampleItem(id="s1", name="Ilmenite", weight=5, power_value=100),
-        SampleItem(id="s2", name="Basalt", weight=10, power_value=150),
-        SampleItem(id="s3", name="Anorthosite", weight=3, power_value=80),
+        SampleItem(id="s1", name="Ilmenite", weight=5, value=100),
+        SampleItem(id="s2", name="Anorthite", weight=10, value=150),
+        SampleItem(id="s3", name="Pyroxene", weight=3, value=80),
     ]
     req = SampleRetrievalRequest(
         bag_capacity=8, available_samples=samples, player_sample_ids=["s1", "s3"]
@@ -442,16 +447,16 @@ def test_sample_retrieval_optimal_power_gain():
     res = sample_retrieval(req)
 
     assert res["status"] == "OPTIMAL_LOADOUT"
-    assert res["player_total_weight"] == 8
-    assert res["optimal_total_weight"] == 8
-    assert res["power_gained"] == res["max_power_gain"] == 20.0
+    assert res["player_total_weight"] == res["optimal_total_weight"] == 8
+    assert res["player_total_value"] == res["optimal_total_value"] == 180
+    assert "power_gained" not in res
 
 
-def test_sample_retrieval_suboptimal_power_gain():
+def test_sample_retrieval_suboptimal_loadout():
     samples = [
-        SampleItem(id="s1", name="Ilmenite", weight=5, power_value=100),
-        SampleItem(id="s2", name="Basalt", weight=10, power_value=150),
-        SampleItem(id="s3", name="Anorthosite", weight=3, power_value=80),
+        SampleItem(id="s1", name="Ilmenite", weight=5, value=100),
+        SampleItem(id="s2", name="Anorthite", weight=10, value=150),
+        SampleItem(id="s3", name="Pyroxene", weight=3, value=80),
     ]
     req = SampleRetrievalRequest(
         bag_capacity=8, available_samples=samples, player_sample_ids=["s3"]
@@ -459,13 +464,14 @@ def test_sample_retrieval_suboptimal_power_gain():
     res = sample_retrieval(req)
 
     assert res["status"] == "SUBOPTIMAL_LOADOUT"
-    assert 0 < res["power_gained"] < res["max_power_gain"]
+    assert res["player_total_value"] == 80
+    assert res["optimal_total_value"] == 180
 
 
-def test_sample_retrieval_overweight_gives_no_power():
+def test_sample_retrieval_overweight_loadout():
     samples = [
-        SampleItem(id="s1", name="Ilmenite", weight=5, power_value=100),
-        SampleItem(id="s2", name="Basalt", weight=4, power_value=80),
+        SampleItem(id="s1", name="Ilmenite", weight=5, value=100),
+        SampleItem(id="s2", name="Anorthite", weight=4, value=80),
     ]
     req = SampleRetrievalRequest(
         bag_capacity=8, available_samples=samples, player_sample_ids=["s1", "s2"]
@@ -473,7 +479,8 @@ def test_sample_retrieval_overweight_gives_no_power():
     res = sample_retrieval(req)
 
     assert res["status"] == "PAYLOAD_OVERWEIGHT"
-    assert res["power_gained"] == 0
+    assert res["player_total_weight"] == 9
+    assert "power_gained" not in res
 
 
 # --- 6. Food Production (Weighted Activity Selection) ---

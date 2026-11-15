@@ -84,7 +84,7 @@ export interface SampleItem {
   id: string;
   name: string;
   weight: number;
-  power_value: number;
+  value: number;
 }
 
 export interface SampleRetrievalGameData {
@@ -96,9 +96,9 @@ export interface SampleRetrievalResponse {
   status: string;
   bag_capacity: number;
   player_total_weight: number;
+  player_total_value: number;
   optimal_total_weight: number;
-  power_gained: number;
-  max_power_gain: number;
+  optimal_total_value: number;
   message: string;
 }
 
