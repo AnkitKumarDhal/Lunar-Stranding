@@ -1,0 +1,151 @@
+diff --git a/backend/routers/signal_transmission.py b/backend/routers/signal_transmission.py
+index 6c2c851a9e8de1dbe602c64736bce45554eaf53f..5269ec67b31edd36aec45705dc644a34dfd152d4 100644
+--- a/backend/routers/signal_transmission.py
++++ b/backend/routers/signal_transmission.py
+@@ -1,24 +1,12 @@
+ from collections import Counter
+ import heapq
+-import random
+ 
+ from fastapi import APIRouter, HTTPException
+ from pydantic import BaseModel
+ 
+ router = APIRouter(prefix="/api/minigames", tags=["signal-transmission"])
+ 
+-MESSAGES = [
+-    "LUNAR BASE EMERGENCY",
+-    "OXYGEN LEVELS STABLE",
+-    "ROVER RETURNING TO BASE",
+-    "SOLAR ARRAY NEEDS REPAIR",
+-    "COMMUNICATION LINK RESTORED",
+-    "CREW CHECK IN COMPLETE",
+-    "WATER SUPPLY RUNNING LOW",
+-    "RADIATION ALERT ACTIVE",
+-    "HABITAT PRESSURE NORMAL",
+-    "DELIVERY AT CRATER SEVEN",
+-]
++MESSAGE = "RECEIVED"
+ ALLOWED_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ ")
+ 
+ 
+@@ -96,9 +84,8 @@ def decode_huffman(encoded: str, code_map: dict[str, str]) -> str:
+ 
+ 
+ def generate_challenge() -> dict:
+-    text = random.choice(MESSAGES)
+-    code_map = build_huffman_codes(text)
+-    encoded = "".join(code_map[char] for char in text)
++    code_map = build_huffman_codes(MESSAGE)
++    encoded = "".join(code_map[char] for char in MESSAGE)
+     return {"encoded_signal": encoded, "code_map": code_map}
+ 
+ 
+diff --git a/backend/tests/test_all_minigames.py b/backend/tests/test_all_minigames.py
+index f7cd514179d563e7c2b01592ec0f71bf0fc8d056..90812a961697119265baca82e9a94571072ed562 100644
+--- a/backend/tests/test_all_minigames.py
++++ b/backend/tests/test_all_minigames.py
+@@ -653,6 +653,7 @@ def test_signal_transmission_generates_and_decodes_challenge():
+     assert set(challenge["encoded_signal"]).issubset({"0", "1"})
+ 
+     answer = decode_huffman(challenge["encoded_signal"], challenge["code_map"])
++    assert answer == "RECEIVED"
+     req = SignalTransmissionRequest(**challenge, answer=answer.lower())
+     result = signal_transmission(req)
+ 
+@@ -664,7 +665,7 @@ def test_signal_transmission_generates_and_decodes_challenge():
+ def test_signal_transmission_rejects_wrong_answer():
+     challenge = signal_transmission(SignalTransmissionRequest())
+     answer = decode_huffman(challenge["encoded_signal"], challenge["code_map"])
+-    wrong_answer = "X" if answer != "X" else "Y"
++    wrong_answer = "HELP"
+ 
+     result = signal_transmission(SignalTransmissionRequest(**challenge, answer=wrong_answer))
+     assert result["is_correct"] is False
+diff --git a/frontend/src/minigames/RadioGame.tsx b/frontend/src/minigames/RadioGame.tsx
+index 901983f6f120448d3d7bd494d854397483b360a5..a64923bb0d1f30b24c7275cab4d8473341f1ec18 100644
+--- a/frontend/src/minigames/RadioGame.tsx
++++ b/frontend/src/minigames/RadioGame.tsx
+@@ -58,10 +58,10 @@ export const RadioGame = ({
+   }, [loadSignalChallenge]);
+ 
+   useEffect(() => {
+-    if (initialTab !== "transmission") return;
++    if (activeTab !== "transmission" || transChallenge) return;
+ 
+     let cancelled = false;
+-    const loadInitialTransmission = async () => {
++    const loadTransmission = async () => {
+       setTransLoading(true);
+       setTransError(null);
+       try {
+@@ -69,18 +69,18 @@ export const RadioGame = ({
+         if (!cancelled) setTransChallenge(challenge);
+       } catch (err: unknown) {
+         if (!cancelled) {
+-          setTransError(err instanceof Error ? err.message : "Could not load a transmission");
++          setTransError(err instanceof Error ? err.message : "Could not load the transmission");
+         }
+       } finally {
+         if (!cancelled) setTransLoading(false);
+       }
+     };
+ 
+-    void loadInitialTransmission();
++    void loadTransmission();
+     return () => {
+       cancelled = true;
+     };
+-  }, [initialTab]);
++  }, [activeTab, transChallenge]);
+ 
+   const moveWindow = (step: number) => {
+     if (!matchChallenge) return;
+@@ -103,20 +103,6 @@ export const RadioGame = ({
+     }
+   };
+ 
+-  const handleNewTransmission = async () => {
+-    setTransLoading(true);
+-    setTransError(null);
+-    setTransResult(null);
+-    try {
+-      setTransChallenge(await gameApi.newSignalTransmission());
+-      setTransAnswer("");
+-    } catch (err: unknown) {
+-      setTransError(err instanceof Error ? err.message : "Could not load a transmission");
+-    } finally {
+-      setTransLoading(false);
+-    }
+-  };
+-
+   const handleTransSubmit = async () => {
+     if (!transChallenge) return;
+     setTransLoading(true);
+@@ -148,10 +134,7 @@ export const RadioGame = ({
+           1. SIGNAL MATCHING (RABIN-KARP)
+         </button>
+         <button
+-          onClick={() => {
+-            setActiveTab("transmission");
+-            if (!transChallenge && !transLoading) void handleNewTransmission();
+-          }}
++          onClick={() => setActiveTab("transmission")}
+           disabled={lockedTab}
+           className={`px-3 py-1.5 rounded text-xs font-bold tracking-wider transition-colors cursor-pointer ${
+             activeTab === "transmission"
+@@ -324,14 +307,7 @@ export const RadioGame = ({
+                 )}
+               </div>
+ 
+-              <div className="flex flex-wrap justify-between gap-2 bg-slate-900/60 p-2.5 rounded border border-slate-800">
+-                <button
+-                  onClick={() => void handleNewTransmission()}
+-                  disabled={transLoading}
+-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold rounded disabled:opacity-40"
+-                >
+-                  NEW TRANSMISSION
+-                </button>
++              <div className="flex justify-end gap-2 bg-slate-900/60 p-2.5 rounded border border-slate-800">
+                 <button
+                   onClick={() => void handleTransSubmit()}
+                   disabled={transLoading || !transAnswer.trim() || isAnswerInvalid}

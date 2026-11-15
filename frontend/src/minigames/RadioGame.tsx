@@ -58,10 +58,10 @@ export const RadioGame = ({
   }, [loadSignalChallenge]);
 
   useEffect(() => {
-    if (initialTab !== "transmission") return;
+    if (activeTab !== "transmission" || transChallenge) return;
 
     let cancelled = false;
-    const loadInitialTransmission = async () => {
+    const loadTransmission = async () => {
       setTransLoading(true);
       setTransError(null);
       try {
@@ -69,18 +69,18 @@ export const RadioGame = ({
         if (!cancelled) setTransChallenge(challenge);
       } catch (err: unknown) {
         if (!cancelled) {
-          setTransError(err instanceof Error ? err.message : "Could not load a transmission");
+          setTransError(err instanceof Error ? err.message : "Could not load the transmission");
         }
       } finally {
         if (!cancelled) setTransLoading(false);
       }
     };
 
-    void loadInitialTransmission();
+    void loadTransmission();
     return () => {
       cancelled = true;
     };
-  }, [initialTab]);
+  }, [activeTab, transChallenge]);
 
   const moveWindow = (step: number) => {
     if (!matchChallenge) return;
@@ -100,20 +100,6 @@ export const RadioGame = ({
       setMatchError(err instanceof Error ? err.message : "Signal check failed");
     } finally {
       setMatchLoading(false);
-    }
-  };
-
-  const handleNewTransmission = async () => {
-    setTransLoading(true);
-    setTransError(null);
-    setTransResult(null);
-    try {
-      setTransChallenge(await gameApi.newSignalTransmission());
-      setTransAnswer("");
-    } catch (err: unknown) {
-      setTransError(err instanceof Error ? err.message : "Could not load a transmission");
-    } finally {
-      setTransLoading(false);
     }
   };
 
@@ -148,10 +134,7 @@ export const RadioGame = ({
           1. SIGNAL MATCHING (RABIN-KARP)
         </button>
         <button
-          onClick={() => {
-            setActiveTab("transmission");
-            if (!transChallenge && !transLoading) void handleNewTransmission();
-          }}
+          onClick={() => setActiveTab("transmission")}
           disabled={lockedTab}
           className={`px-3 py-1.5 rounded text-xs font-bold tracking-wider transition-colors cursor-pointer ${
             activeTab === "transmission"
@@ -324,14 +307,7 @@ export const RadioGame = ({
                 )}
               </div>
 
-              <div className="flex flex-wrap justify-between gap-2 bg-slate-900/60 p-2.5 rounded border border-slate-800">
-                <button
-                  onClick={() => void handleNewTransmission()}
-                  disabled={transLoading}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-600 text-slate-200 text-xs font-bold rounded disabled:opacity-40"
-                >
-                  NEW TRANSMISSION
-                </button>
+              <div className="flex justify-end gap-2 bg-slate-900/60 p-2.5 rounded border border-slate-800">
                 <button
                   onClick={() => void handleTransSubmit()}
                   disabled={transLoading || !transAnswer.trim() || isAnswerInvalid}

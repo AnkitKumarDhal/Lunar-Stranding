@@ -653,6 +653,7 @@ def test_signal_transmission_generates_and_decodes_challenge():
     assert set(challenge["encoded_signal"]).issubset({"0", "1"})
 
     answer = decode_huffman(challenge["encoded_signal"], challenge["code_map"])
+    assert answer == "RECEIVED"
     req = SignalTransmissionRequest(**challenge, answer=answer.lower())
     result = signal_transmission(req)
 
@@ -664,7 +665,7 @@ def test_signal_transmission_generates_and_decodes_challenge():
 def test_signal_transmission_rejects_wrong_answer():
     challenge = signal_transmission(SignalTransmissionRequest())
     answer = decode_huffman(challenge["encoded_signal"], challenge["code_map"])
-    wrong_answer = "X" if answer != "X" else "Y"
+    wrong_answer = "HELP"
 
     result = signal_transmission(SignalTransmissionRequest(**challenge, answer=wrong_answer))
     assert result["is_correct"] is False

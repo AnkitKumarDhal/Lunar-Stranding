@@ -1,24 +1,12 @@
 from collections import Counter
 import heapq
-import random
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/minigames", tags=["signal-transmission"])
 
-MESSAGES = [
-    "LUNAR BASE EMERGENCY",
-    "OXYGEN LEVELS STABLE",
-    "ROVER RETURNING TO BASE",
-    "SOLAR ARRAY NEEDS REPAIR",
-    "COMMUNICATION LINK RESTORED",
-    "CREW CHECK IN COMPLETE",
-    "WATER SUPPLY RUNNING LOW",
-    "RADIATION ALERT ACTIVE",
-    "HABITAT PRESSURE NORMAL",
-    "DELIVERY AT CRATER SEVEN",
-]
+MESSAGE = "RECEIVED"
 ALLOWED_CHARS = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ ")
 
 
@@ -96,9 +84,8 @@ def decode_huffman(encoded: str, code_map: dict[str, str]) -> str:
 
 
 def generate_challenge() -> dict:
-    text = random.choice(MESSAGES)
-    code_map = build_huffman_codes(text)
-    encoded = "".join(code_map[char] for char in text)
+    code_map = build_huffman_codes(MESSAGE)
+    encoded = "".join(code_map[char] for char in MESSAGE)
     return {"encoded_signal": encoded, "code_map": code_map}
 
 
