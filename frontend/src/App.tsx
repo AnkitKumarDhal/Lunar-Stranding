@@ -21,7 +21,17 @@ import { RadioGame } from "./minigames/RadioGame";
 import { RoverWorkshopGame } from "./minigames/RoverWorkshopGame";
 
 const STORAGE_KEY = "lunar-stranding-story-v1";
+const POWER_STORAGE_KEY = "lunar-stranding-power-v1";
+const INITIAL_POWER = 100;
 const AUTONOMY_WINDOW_MS = AUTONOMY_WINDOW_SECONDS * 1000;
+
+function loadPower() {
+  const saved = localStorage.getItem(POWER_STORAGE_KEY);
+  const value = saved === null ? INITIAL_POWER : Number(saved);
+  return Number.isFinite(value)
+    ? Math.max(0, Math.min(100, value))
+    : INITIAL_POWER;
+}
 
 const FACILITY_META: Record<FacilityType, { title: string; subtitle: string }> =
   {
@@ -276,13 +286,21 @@ export default function App() {
     null,
   );
   const [tasksOpen, setTasksOpen] = useState(false);
-
-  // The backend will supply this value. Do not calculate or mutate energy here.
-  const power: number | null = null;
+  const [power, setPower] = useState(loadPower);
+  const [gameOver, setGameOver] = useState(false);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(story));
   }, [story]);
+
+  useEffect(() => {
+    localStorage.setItem(POWER_STORAGE_KEY, String(power));
+    if (power === 0) {
+      setGameOver(true);
+      setManualFacility(null);
+      setTasksOpen(false);
+    }
+  }, [power]);
 
   useEffect(() => {
     if (story.mode !== "autonomy") return;
@@ -492,15 +510,21 @@ export default function App() {
     }
   };
 
-  // These legacy callbacks intentionally do not change frontend energy.
-  // Energy accounting will be connected to the backend game-state API.
-  const handlePowerConsumed = (_amount: number) => undefined;
-  const handlePowerChange = (_amount: number) => undefined;
+  const handlePowerConsumed = (amount: number) => {
+    setPower((current) => Math.max(0, current - amount));
+  };
 
-  const restartStory = () => {
+  const handlePowerChange = (amount: number) => {
+    setPower((current) => Math.max(0, Math.min(100, current + amount)));
+  };
+
+  const restartGame = () => {
     setStory(createInitialProgress());
+    setPower(INITIAL_POWER);
+    setGameOver(false);
     setManualFacility(null);
     setTasksOpen(false);
+    localStorage.removeItem(STORAGE_KEY);
   };
 
   const resetGameForTesting = () => {
@@ -513,6 +537,7 @@ export default function App() {
     if (!confirmed) return;
 
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(POWER_STORAGE_KEY);
 
     // Reloading resets active minigames and transient UI state.
     window.location.reload();
@@ -751,7 +776,30 @@ export default function App() {
         />
       )}
 
-      {story.mode === "finished" && (
+      {gameOver && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/95 px-6 text-center font-mono">
+          <div className="max-w-xl border border-red-500/60 bg-slate-900/90 p-8 shadow-[0_0_60px_rgba(239,68,68,0.15)]">
+            <p className="text-xs tracking-[0.3em] text-red-400">
+              LUNAR STRANDING // LIFE SUPPORT
+            </p>
+            <h2 className="mt-4 text-4xl font-black tracking-widest text-white">
+              GAME OVER
+            </h2>
+            <p className="mt-5 text-sm leading-7 text-slate-300">
+              The outpost has run out of power. Restart the mission and try again.
+            </p>
+            <button
+              type="button"
+              onClick={restartGame}
+              className="mt-7 border border-cyan-500/60 bg-cyan-500/15 px-6 py-3 text-[10px] font-bold tracking-widest text-cyan-200 transition-colors hover:bg-cyan-500/25"
+            >
+              RETRY
+            </button>
+          </div>
+        </div>
+      )}
+
+      {story.mode === "finished" && !gameOver && (
         <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/95 px-6 text-center font-mono">
           <div className="max-w-2xl border border-cyan-500/50 bg-slate-900/80 p-8 shadow-[0_0_60px_rgba(6,182,212,0.12)]">
             <p className="text-xs tracking-[0.3em] text-cyan-400">
@@ -773,7 +821,7 @@ export default function App() {
 
             <button
               type="button"
-              onClick={restartStory}
+              onClick={restartGame}
               className="mt-7 border border-cyan-500/60 bg-cyan-500/15 px-5 py-3 text-[10px] font-bold tracking-widest text-cyan-200 transition-colors hover:bg-cyan-500/25"
             >
               RESTART STORY

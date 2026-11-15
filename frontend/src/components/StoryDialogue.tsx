@@ -57,9 +57,30 @@ export function StoryDialogue({
         ? "text-amber-200"
         : "text-cyan-300";
 
-  const skipTyping = () => {
-    setVisibleCharacters(line.text.length);
+  const skipDialogue = () => {
+    if (choices?.length) {
+      setVisibleCharacters(line.text.length);
+      return;
+    }
+    onContinue();
   };
+
+  useEffect(() => {
+    if (choices?.length) return;
+
+    const handleEnter = (event: KeyboardEvent) => {
+      if (event.key !== "Enter" || event.repeat) return;
+      if (
+        event.target instanceof HTMLElement &&
+        event.target.closest("button, input, textarea, select")
+      ) return;
+      event.preventDefault();
+      onContinue();
+    };
+
+    window.addEventListener("keydown", handleEnter);
+    return () => window.removeEventListener("keydown", handleEnter);
+  }, [choices, onContinue]);
 
   return (
     <div
@@ -138,7 +159,7 @@ export function StoryDialogue({
                 {isTyping ? (
                   <button
                     type="button"
-                    onClick={skipTyping}
+                    onClick={skipDialogue}
                     className="border border-slate-600/80 bg-slate-900/80 px-5 py-2.5 text-[10px] font-bold tracking-[0.2em] text-slate-300 transition-colors hover:border-cyan-500/60 hover:text-cyan-200"
                   >
                     SKIP

@@ -141,7 +141,7 @@ export function DailyRoutinePanel({
 }
 
 interface HudProps {
-  power: number | null;
+  power: number;
   day: number;
   missionStatus: string;
   onResetGame: () => void;
@@ -157,7 +157,7 @@ export default function Hud({
   const panelBase =
     "border border-cyan-800/60 bg-slate-950/75 font-mono shadow-[0_0_15px_rgba(0,0,0,0.8)] backdrop-blur-md pointer-events-auto";
 
-  const safePower = power === null ? null : Math.max(0, Math.min(100, power));
+  const safePower = Math.max(0, Math.min(100, power));
 
   return (
     <div className="pointer-events-none absolute inset-0 z-20 select-none font-mono uppercase tracking-wider text-cyan-100">
@@ -183,16 +183,14 @@ export default function Hud({
               <Battery size={14} /> <span>POWER</span>
             </div>
             <span className="text-xs">
-              {safePower === null
-                ? "SYNC PENDING"
-                : `${safePower.toFixed(1)}/100`}
+              {`${safePower.toFixed(1)}/100`}
             </span>
           </div>
 
           <div className="h-2 w-full border border-amber-900/50 bg-slate-900">
             <div
               className="h-full bg-amber-400 shadow-[0_0_8px_#fbbf24]"
-              style={{ width: `${safePower ?? 0}%` }}
+              style={{ width: `${safePower}%` }}
             />
           </div>
         </div>
