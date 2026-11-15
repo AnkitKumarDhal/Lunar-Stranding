@@ -19,21 +19,18 @@ export function StoryDialogue({
   const commanderSpeaking = line.speaker === "COMMANDER";
 
   return (
-    <div className="fixed inset-0 z-[60] overflow-hidden bg-[#03070d] font-mono text-slate-100">
-      <div className="absolute inset-0 bg-[url('/moon.png')] bg-cover bg-center opacity-35" />
-      <div className="absolute inset-0 bg-gradient-to-b from-slate-950/15 via-slate-950/25 to-slate-950" />
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Day ${day} story dialogue`}
+      className="fixed inset-0 z-[60] overflow-hidden bg-transparent font-mono text-slate-100"
+    >
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-slate-950/5 via-slate-950/5 to-slate-950/30" />
 
-      <div className="absolute left-6 top-6 z-10 border border-cyan-500/40 bg-slate-950/75 px-4 py-2 backdrop-blur">
-        <p className="text-[10px] tracking-[0.28em] text-cyan-400">
-          LUNAR STRANDING
-        </p>
-        <p className="mt-1 text-xs font-bold tracking-widest text-white">
-          DAY {String(day).padStart(2, "0")}
-        </p>
-      </div>
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[38%] bg-gradient-to-t from-slate-950/25 to-transparent" />
 
-      <div className="absolute inset-x-0 bottom-[29%] top-0">
-        <div className="absolute bottom-0 left-[4vw] flex h-[92%] w-[42vw] items-end justify-center">
+      <div className="pointer-events-none absolute inset-x-0 bottom-[28%] top-[24%]">
+        <div className="absolute bottom-0 left-[4vw] flex h-[94%] w-[36vw] items-end justify-center">
           <img
             src="/characters/ai-placeholder.svg"
             alt="AI companion"
@@ -43,12 +40,13 @@ export function StoryDialogue({
                 : "opacity-55"
             }`}
           />
+
           <span className="absolute bottom-3 left-1/2 -translate-x-1/2 border border-cyan-500/35 bg-slate-950/75 px-3 py-1 text-[9px] tracking-[0.2em] text-cyan-300">
             AI COMPANION
           </span>
         </div>
 
-        <div className="absolute bottom-0 right-[4vw] flex h-[92%] w-[42vw] items-end justify-center">
+        <div className="absolute bottom-0 right-[4vw] flex h-[94%] w-[36vw] items-end justify-center">
           <img
             src="/characters/commander-placeholder.svg"
             alt="Commander"
@@ -58,13 +56,14 @@ export function StoryDialogue({
                 : "opacity-65"
             }`}
           />
+
           <span className="absolute bottom-3 left-1/2 -translate-x-1/2 border border-amber-500/35 bg-slate-950/75 px-3 py-1 text-[9px] tracking-[0.2em] text-amber-300">
             COMMANDER
           </span>
         </div>
       </div>
 
-      <div className="absolute inset-x-0 bottom-0 z-20 border-t border-cyan-700/60 bg-slate-950/95 px-5 pb-5 pt-4 shadow-[0_-18px_60px_rgba(0,0,0,0.8)] backdrop-blur-xl sm:px-10 sm:pb-7">
+      <div className="absolute inset-x-0 bottom-0 z-20 border-t border-cyan-700/60 bg-slate-950/80 px-5 pb-5 pt-4 shadow-[0_-18px_60px_rgba(0,0,0,0.65)] backdrop-blur-md sm:px-10 sm:pb-7">
         <div className="mx-auto max-w-6xl">
           <div className="mb-3 flex items-center justify-between gap-4">
             <span

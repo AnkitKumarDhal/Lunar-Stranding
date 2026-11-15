@@ -67,6 +67,32 @@ const MISSION_FACILITY: Record<StoryMissionId, FacilityType> = {
   "sample-retrieval": "mining_rover",
 };
 
+const FACILITY_UNLOCK_MISSION: Partial<Record<StoryMissionId, FacilityType>> = {
+  "solar-panels": "solar",
+  "signal-decode": "radio",
+  "food-production": "greenhouse",
+  "water-rover": "water_rover",
+  "rover-workshop": "garage",
+  "crater-sensors": "crater_sensors",
+  "sample-retrieval": "mining_rover",
+};
+
+const ALL_FACILITIES: FacilityType[] = [
+  "solar",
+  "radio",
+  "greenhouse",
+  "water_rover",
+  "garage",
+  "crater_sensors",
+  "mining_rover",
+];
+
+function isFacilityType(value: unknown): value is FacilityType {
+  return (
+    typeof value === "string" && ALL_FACILITIES.includes(value as FacilityType)
+  );
+}
+
 type StoryMode =
   | "dialogue"
   | "choice"
@@ -84,6 +110,7 @@ interface StoryProgress {
   optionalSolar: boolean;
   lastMissionOutcome: StoryOutcome;
   tasks: DailyTasksState;
+  unlockedFacilities: FacilityType[];
 }
 
 const createDailyTasks = (): DailyTasksState => ({
@@ -102,7 +129,25 @@ const createInitialProgress = (): StoryProgress => ({
   optionalSolar: false,
   lastMissionOutcome: null,
   tasks: createDailyTasks(),
+  unlockedFacilities: [],
 });
+
+function getLegacyFacilityUnlocks(
+  day: number,
+  stepIndex: number,
+): FacilityType[] {
+  const unlocked = new Set<FacilityType>();
+
+  if (day > 1 || (day === 1 && stepIndex >= 5)) unlocked.add("solar");
+  if (day > 1 || (day === 1 && stepIndex >= 11)) unlocked.add("radio");
+  if (day > 2 || (day === 2 && stepIndex >= 2)) unlocked.add("greenhouse");
+  if (day > 2 || (day === 2 && stepIndex >= 4)) unlocked.add("water_rover");
+  if (day > 3 || (day === 3 && stepIndex >= 3)) unlocked.add("garage");
+  if (day > 3 || (day === 3 && stepIndex >= 9)) unlocked.add("crater_sensors");
+  if (day >= 5 || (day === 4 && stepIndex >= 5)) unlocked.add("mining_rover");
+
+  return [...unlocked];
+}
 
 function loadStoryProgress(): StoryProgress {
   const initial = createInitialProgress();
@@ -134,9 +179,19 @@ function loadStoryProgress(): StoryProgress {
       return initial;
     }
 
+    const savedUnlocks = Array.isArray(parsed.unlockedFacilities)
+      ? parsed.unlockedFacilities.filter(isFacilityType)
+      : [];
+
+    const migratedUnlocks = getLegacyFacilityUnlocks(
+      parsed.day,
+      parsed.stepIndex,
+    );
+
     return {
       ...initial,
       ...parsed,
+      unlockedFacilities: [...new Set([...migratedUnlocks, ...savedUnlocks])],
       tasks: { ...initial.tasks, ...(parsed.tasks ?? {}) },
     };
   } catch {
@@ -307,10 +362,27 @@ export default function App() {
 
   const completeStoryMission = (outcome: StoryOutcome = null) => {
     setStory((current) => {
-      if (current.mode !== "mission") return current;
+      const step = getStep(current);
+
+      if (
+        current.mode !== "mission" ||
+        (step?.type !== "mission" && step?.type !== "optional-mission")
+      ) {
+        return current;
+      }
+
+      const facilityToUnlock = FACILITY_UNLOCK_MISSION[step.id];
+
+      const unlockedFacilities = facilityToUnlock
+        ? [...new Set([...current.unlockedFacilities, facilityToUnlock])]
+        : current.unlockedFacilities;
 
       return resolveStoryStep(
-        { ...current, lastMissionOutcome: outcome },
+        {
+          ...current,
+          lastMissionOutcome: outcome,
+          unlockedFacilities,
+        },
         current.day,
         current.stepIndex + 1,
       );
@@ -374,6 +446,9 @@ export default function App() {
   const activeFacility = storyFacility ?? manualFacility;
 
   const isSandbox = story.mode === "sandbox";
+  const canVisitFacilities = story.mode === "autonomy" || isSandbox;
+  const isFacilityUnlocked = (facility: FacilityType) =>
+    isSandbox || story.unlockedFacilities.includes(facility);
   const canOpenTasks = story.mode === "autonomy" || isSandbox;
 
   const missionStatus = isSandbox
@@ -385,7 +460,7 @@ export default function App() {
         : "GUIDED SURVIVAL // FOLLOW THE AI COMPANION";
 
   const openFacility = (facility: FacilityType) => {
-    if (!isSandbox) return;
+    if (!canVisitFacilities || !isFacilityUnlocked(facility)) return;
 
     setManualFacility(facility);
     setTasksOpen(false);
@@ -418,8 +493,12 @@ export default function App() {
           height: "min(100vh, 100vw * (9/16))",
         }}
       >
-        {isSandbox && (
-          <div className="pointer-events-auto absolute inset-0 z-10">
+        {story.mode !== "finished" && (
+          <div
+            className={`absolute inset-0 z-10 ${
+              canVisitFacilities ? "pointer-events-auto" : "pointer-events-none"
+            }`}
+          >
             <MapBox
               id="solar-array"
               type="solar"
@@ -427,6 +506,7 @@ export default function App() {
               top="22%"
               left="18%"
               accentColor="cyan"
+              locked={!isFacilityUnlocked("solar")}
               onClick={() => openFacility("solar")}
             />
 
@@ -437,6 +517,7 @@ export default function App() {
               top="35%"
               left="16%"
               accentColor="cyan"
+              locked={!isFacilityUnlocked("garage")}
               onClick={() => openFacility("garage")}
             />
 
@@ -447,6 +528,7 @@ export default function App() {
               top="35%"
               left="45%"
               accentColor="cyan"
+              locked={!isFacilityUnlocked("crater_sensors")}
               onClick={() => openFacility("crater_sensors")}
             />
 
@@ -457,6 +539,7 @@ export default function App() {
               top="42%"
               left="64%"
               accentColor="cyan"
+              locked={!isFacilityUnlocked("radio")}
               onClick={() => openFacility("radio")}
             />
 
@@ -467,6 +550,7 @@ export default function App() {
               top="68%"
               left="35%"
               accentColor="amber"
+              locked={!isFacilityUnlocked("water_rover")}
               onClick={() => openFacility("water_rover")}
             />
 
@@ -477,6 +561,7 @@ export default function App() {
               top="65%"
               left="82%"
               accentColor="amber"
+              locked={!isFacilityUnlocked("mining_rover")}
               onClick={() => openFacility("mining_rover")}
             />
 
@@ -487,6 +572,7 @@ export default function App() {
               top="86%"
               left="49%"
               accentColor="emerald"
+              locked={!isFacilityUnlocked("greenhouse")}
               onClick={() => openFacility("greenhouse")}
             />
           </div>

@@ -1,5 +1,5 @@
 import React from "react";
-import { Radio, Sprout, Wrench, Radar } from "lucide-react";
+import { Radio, Sprout, Wrench, Radar, LockKeyhole } from "lucide-react";
 import type { FacilityType } from "../types/game";
 
 export const RoverSvg = () => (
@@ -59,6 +59,7 @@ interface MapNodeProps {
   top: string;
   left: string;
   accentColor: "cyan" | "amber" | "emerald";
+  locked?: boolean;
   onClick: () => void;
 }
 
@@ -77,6 +78,7 @@ export const MapBox: React.FC<MapNodeProps> = ({
   top,
   left,
   accentColor,
+  locked = false,
   onClick,
 }) => {
   const renderIcon = () => {
@@ -100,19 +102,43 @@ export const MapBox: React.FC<MapNodeProps> = ({
   return (
     <button
       id={id}
+      type="button"
+      disabled={locked}
       onClick={onClick}
-      className="absolute flex flex-col items-center gap-1.5 cursor-pointer transition-transform duration-150 hover:scale-105 active:scale-95"
+      title={locked ? "This facility is not unlocked yet" : label}
+      aria-label={locked ? `${label}, locked` : label}
+      className={`absolute flex flex-col items-center gap-1.5 transition-transform duration-150 ${
+        locked
+          ? "cursor-not-allowed opacity-45 grayscale"
+          : "cursor-pointer hover:scale-105 active:scale-95"
+      }`}
       style={{ top, left, transform: "translate(-50%, -50%)" }}
     >
       <div
-        className={`relative w-12 h-12 rounded-lg border flex items-center justify-center backdrop-blur-md ${colorMap[accentColor]}`}
+        className={`relative flex h-12 w-12 items-center justify-center rounded-lg border backdrop-blur-md ${
+          locked
+            ? "border-slate-600/80 bg-slate-950/85 text-slate-500 shadow-none"
+            : colorMap[accentColor]
+        }`}
       >
-        {renderIcon()}
+        {locked ? <LockKeyhole className="h-6 w-6" /> : renderIcon()}
       </div>
 
-      <span className="px-2.5 py-0.5 rounded bg-slate-950/90 border border-slate-700/80 text-[11px] font-mono font-bold tracking-wider text-slate-100 whitespace-nowrap shadow-[0_2px_8px_rgba(0,0,0,0.9)]">
+      <span
+        className={`whitespace-nowrap rounded border px-2.5 py-0.5 text-[11px] font-mono font-bold tracking-wider shadow-[0_2px_8px_rgba(0,0,0,0.9)] ${
+          locked
+            ? "border-slate-700/80 bg-slate-950/90 text-slate-400"
+            : "border-slate-700/80 bg-slate-950/90 text-slate-100"
+        }`}
+      >
         {label}
       </span>
+
+      {locked && (
+        <span className="text-[8px] font-bold tracking-[0.2em] text-slate-500">
+          LOCKED
+        </span>
+      )}
     </button>
   );
 };
