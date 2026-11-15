@@ -2,6 +2,8 @@
 
 **An educational algorithmic survival game set at an Artemis-inspired lunar outpost**
 
+🌐 **Play the deployed game:** [https://lunar-stranding-rho.vercel.app/](https://lunar-stranding-rho.vercel.app/)
+
 **Lunar Stranding** is an interactive story and strategy game set near **Shackleton Crater at the Moon's South Pole**. After an emergency landing, the player becomes the commander of a lunar outpost. Guided by an onboard AI companion, they must keep the base running and complete a seven-day survival mission while waiting for rescue.
 
 Players operate the outpost through short story sequences, a top-down base map and algorithm-based mini-games. Each mini-game turns a real computer science problem into a practical engineering task.
@@ -135,75 +137,25 @@ Lunar-Stranding/
 
 ---
 
-## 🚀 Getting Started
+## 🚀 Play the Game
 
-### Prerequisites
+The game is deployed and can be played directly in your browser:
+
+**[https://lunar-stranding-rho.vercel.app/](https://lunar-stranding-rho.vercel.app/)**
+
+### Requirements for Local Development
+
+If you want to run or modify the project locally, you will need:
 
 - **Python:** 3.10 or newer
 - **Node.js:** 20.19+ or 22.12+
 - **npm**
+- **Backend dependencies:** listed in `backend/requirements.txt`
+- **Frontend dependencies:** listed in `frontend/package.json`
 
-### 1. Start the Backend (FastAPI)
+### Testing
 
-Open a terminal in the project directory:
-
-```powershell
-cd backend
-python -m venv .venv
-```
-
-Activate the environment on Windows:
-
-```powershell
-.venv\Scripts\Activate.ps1
-```
-
-Install the dependencies and start the API:
-
-```powershell
-pip install -r requirements.txt
-uvicorn main:app --reload
-```
-
-The backend runs at `http://127.0.0.1:8000`. Interactive API documentation is available at `http://127.0.0.1:8000/docs`.
-
-### 2. Start the Frontend (React + Vite)
-
-Open a second terminal in the project directory:
-
-```powershell
-cd frontend
-npm install
-npm run dev
-```
-
-Open the local URL printed by Vite (usually `http://localhost:5173`).
-
-### 3. Run the Frontend Checks
-
-From the `frontend` directory:
-
-```powershell
-npm run build
-npm run lint
-```
-
----
-
-## 🧪 Running Backend Tests
-
-From the project directory:
-
-```powershell
-cd backend
-pytest tests/test_all_minigames.py
-```
-
-To verify the API against a running local server, start Uvicorn in one terminal and run:
-
-```powershell
-python tests/verify_live_server.py
-```
+The project includes backend tests in `backend/tests/test_all_minigames.py` and live API checks in `backend/tests/verify_live_server.py`. The frontend uses its configured build and lint checks.
 
 ---
 
