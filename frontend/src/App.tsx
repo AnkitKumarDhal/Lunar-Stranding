@@ -177,7 +177,13 @@ export default function App() {
             />
           )}
 
-          {activeFacility === "solar" && <SolarPanelsGame />}
+          {activeFacility === "solar" && (
+            <SolarPanelsGame
+              onPowerConsumed={(amount) =>
+                setPower((current) => Math.max(0, Number((current - amount).toFixed(2))))
+              }
+            />
+          )}
 
           {activeFacility === "crater_sensors" && (
             <CraterTraverseGame

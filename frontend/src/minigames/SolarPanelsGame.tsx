@@ -15,7 +15,11 @@ interface NodePosition {
   label: string;
 }
 
-export const SolarPanelsGame = () => {
+interface SolarPanelsGameProps {
+  onPowerConsumed: (amount: number) => void;
+}
+
+export const SolarPanelsGame = ({ onPowerConsumed }: SolarPanelsGameProps) => {
   const [graph, setGraph] = useState<Record<string, Record<string, number>>>({});
   const [startNode, setStartNode] = useState("A");
   const [selectedEdges, setSelectedEdges] = useState<[string, string][]>([]);
@@ -25,15 +29,13 @@ export const SolarPanelsGame = () => {
   const hasLoaded = useRef(false);
 
   const nodes = Object.keys(graph);
+  // Position the six panels in a clear 2x3 rectangle.
   const nodeCoords: Record<string, NodePosition> = Object.fromEntries(
-    nodes.map((node, index) => {
-      const angle = (2 * Math.PI * index) / nodes.length - Math.PI / 2;
-      return [node, {
-        x: 250 + 180 * Math.cos(angle),
-        y: 150 + 115 * Math.sin(angle),
-        label: `PANEL ${node}`,
-      }];
-    }),
+    nodes.map((node, index) => [node, {
+      x: 90 + (index % 3) * 160,
+      y: index < 3 ? 75 : 225,
+      label: `PANEL ${node}`,
+    }]),
   );
 
   // Draw each undirected edge once and place its weight at the midpoint.
@@ -99,7 +101,7 @@ export const SolarPanelsGame = () => {
     (sum, [u, v]) => sum + (graph[u]?.[v] ?? graph[v]?.[u] ?? 0),
     0,
   );
-  const panelCount = nodes.length || 10;
+  const panelCount = nodes.length || 6;
   const requiredEdges = panelCount - 1;
 
   const handleSubmit = async () => {
@@ -108,6 +110,7 @@ export const SolarPanelsGame = () => {
     try {
       const res = await gameApi.submitSolarPanels(graph, selectedEdges, startNode);
       setResult(res);
+      if (res.power_consumed > 0) onPowerConsumed(res.power_consumed);
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Grid submission failed");
     } finally {
@@ -125,7 +128,7 @@ export const SolarPanelsGame = () => {
           using minimum total cable length (Prim&apos;s MST).
         </div>
         <div className="text-[11px] text-slate-400 font-mono">
-          Required Cables: <span className="text-amber-400 font-bold">{requiredEdges || 9}</span>
+          Required Cables: <span className="text-amber-400 font-bold">{requiredEdges}</span>
         </div>
       </div>
 
@@ -243,7 +246,7 @@ export const SolarPanelsGame = () => {
           </button>
           <button
             onClick={handleSubmit}
-            disabled={loading || nodes.length === 0 || selectedEdges.length === 0}
+            disabled={loading || nodes.length === 0 || selectedEdges.length === 0 || result !== null}
             className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
           >
             {loading ? "CALCULATING MST..." : "CONNECT POWER GRID"}
@@ -275,7 +278,7 @@ export const SolarPanelsGame = () => {
 
           <p className="text-slate-200">{result.message}</p>
 
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
             <div>
               <span className="text-slate-500 block">Your Cable Length:</span>
               <span className="text-amber-400 font-bold">{result.player_cost}m</span>
@@ -283,6 +286,10 @@ export const SolarPanelsGame = () => {
             <div>
               <span className="text-slate-500 block">Optimal MST Length:</span>
               <span className="text-emerald-400 font-bold">{result.optimal_cost}m</span>
+            </div>
+            <div>
+              <span className="text-slate-500 block">Power Consumed:</span>
+              <span className="text-amber-400 font-bold">{result.power_consumed}</span>
             </div>
             <div>
               <span className="text-slate-500 block">Optimal Connections:</span>

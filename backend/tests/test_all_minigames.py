@@ -13,7 +13,7 @@ from routers.solar_panels import solar_panels_mst, SolarPanelsRequest
 from routers.mining_rover import mining_rover_navigation, MiningRoverRequest, generate_mining_game
 from routers.sample_retrieval import sample_retrieval, SampleRetrievalRequest, SampleItem
 from routers.food_production import food_production_scheduling, FoodProductionRequest, TaskModel
-from routers.signal_match import signal_match_search, SignalMatchRequest
+from routers.signal_match import signal_match_search, SignalMatchRequest, rabin_karp_search
 from routers.signal_transmission import signal_transmission, SignalTransmissionRequest, decode_huffman
 from routers.rover_workshop import rover_workshop_scheduling, RoverWorkshopRequest
 
@@ -219,7 +219,8 @@ def test_solar_panels_optimal():
     assert res["status"] == "OPTIMAL"
     assert res["optimal_cost"] == 4.0
     assert res["player_cost"] == 4.0
-    assert set(res) == {"status", "optimal_cost", "optimal_edges", "player_cost", "message"}
+    assert res["power_consumed"] == 2.0
+    assert set(res) == {"status", "optimal_cost", "optimal_edges", "player_cost", "power_consumed", "message"}
 
 
 def test_solar_panels_invalid_edges():
@@ -235,6 +236,7 @@ def test_solar_panels_invalid_edges():
     )
     res = solar_panels_mst(req)
     assert res["status"] == "INVALID_SPANNING_TREE"
+    assert res["power_consumed"] == 0.0
 
 
 def test_solar_panels_disconnected_graph():
@@ -246,6 +248,7 @@ def test_solar_panels_disconnected_graph():
     }
     res = solar_panels_mst(SolarPanelsRequest(graph=graph))
     assert res["status"] == "DISCONNECTED_GRAPH"
+    assert res["power_consumed"] == 0.0
 
 
 def test_solar_panels_compares_unrounded_costs():
@@ -267,11 +270,11 @@ def test_solar_panels_randomized_game():
     graph = game["graph"]
     nodes = list(graph)
 
-    assert len(nodes) == 10
+    assert nodes == list("ABCDEF")
     assert game["start_node"] == "A"
 
     edge_count = sum(len(neighbors) for neighbors in graph.values()) // 2
-    assert 15 <= edge_count <= 20
+    assert edge_count == 8
 
     for u, neighbors in graph.items():
         for v, weight in neighbors.items():
@@ -289,6 +292,28 @@ def test_solar_panels_randomized_game():
                 queue.append(neighbor)
 
     assert len(visited) == len(nodes)
+
+
+def test_solar_panels_suboptimal_solution_consumes_more_power():
+    graph = {
+        "A": {"B": 1, "C": 8, "D": 5},
+        "B": {"A": 1, "C": 2, "E": 6},
+        "C": {"A": 8, "B": 2, "F": 3},
+        "D": {"A": 5, "E": 2},
+        "E": {"D": 2, "F": 2, "B": 6},
+        "F": {"C": 3, "E": 2},
+    }
+    optimal = solar_panels_mst(SolarPanelsRequest(
+        graph=graph,
+        player_edges=[["A", "B"], ["B", "C"], ["C", "F"], ["F", "E"], ["E", "D"]],
+    ))
+    suboptimal = solar_panels_mst(SolarPanelsRequest(
+        graph=graph,
+        player_edges=[["A", "D"], ["D", "E"], ["E", "F"], ["F", "C"], ["C", "B"]],
+    ))
+    assert optimal["status"] == "OPTIMAL"
+    assert suboptimal["status"] == "SUBOPTIMAL"
+    assert suboptimal["power_consumed"] > optimal["power_consumed"]
 
 
 # --- 4. Mining Rover (Bellman-Ford) ---
@@ -583,53 +608,50 @@ def test_food_production_optimal_plan_excludes_tasks_exceeding_bus_limit():
 
 
 # --- 7. Signal Match (Rabin-Karp) ---
-def test_signal_match_found():
-    req = SignalMatchRequest(
-        signal="11010010110",
-        pattern="00101"
-    )
-    res = signal_match_search(req)
-    assert res["pattern_found"] is True
-    assert res["match_index"] == 4
-    assert res["status"] == "PATTERN_LOCKED"
+def test_signal_match_generates_unique_challenge():
+    challenge = signal_match_search(SignalMatchRequest())
+    signal, pattern = challenge["signal"], challenge["pattern"]
+
+    assert len(signal) == 80
+    assert len(pattern) == 10
+    assert set(signal + pattern) <= {"0", "1"}
+    assert sum(signal[i:i + len(pattern)] == pattern for i in range(len(signal) - len(pattern) + 1)) == 1
 
 
-def test_signal_match_edge_cases():
-    req1 = SignalMatchRequest(signal="10101", pattern="")
-    assert signal_match_search(req1)["status"] == "EMPTY_PATTERN"
+def test_signal_match_accepts_correct_window():
+    challenge = signal_match_search(SignalMatchRequest())
+    index = rabin_karp_search(challenge["signal"], challenge["pattern"])
+    req = SignalMatchRequest(**challenge, player_index=index)
 
-    req2 = SignalMatchRequest(signal="10", pattern="10101")
-    assert signal_match_search(req2)["status"] == "PATTERN_TOO_LONG"
+    result = signal_match_search(req)
+    assert result["pattern_found"] is True
+    assert result["status"] == "PATTERN_LOCKED"
 
 
-def test_rabin_karp_rejects_invalid_binary_string():
-    # Case 8: Reject strings containing invalid characters with HTTP 400
-    req = SignalMatchRequest(signal="101021", pattern="01")
+def test_signal_match_rejects_wrong_window():
+    challenge = signal_match_search(SignalMatchRequest())
+    index = rabin_karp_search(challenge["signal"], challenge["pattern"])
+    wrong_index = index + 1 if index < len(challenge["signal"]) - len(challenge["pattern"]) else index - 1
+    result = signal_match_search(SignalMatchRequest(**challenge, player_index=wrong_index))
+
+    assert result["pattern_found"] is False
+    assert result["status"] == "WRONG_WINDOW"
+
+
+def test_signal_match_rejects_invalid_bits_and_window():
     with pytest.raises(HTTPException) as exc_info:
-        signal_match_search(req)
+        signal_match_search(SignalMatchRequest(signal="010201", pattern="010", player_index=0))
     assert exc_info.value.status_code == 400
-    assert "Only binary digits '0' and '1' are allowed" in exc_info.value.detail
 
-    req2 = SignalMatchRequest(signal="10101", pattern="01abc")
-    with pytest.raises(HTTPException) as exc_info2:
-        signal_match_search(req2)
-    assert exc_info2.value.status_code == 400
-    assert "Only binary digits '0' and '1' are allowed" in exc_info2.value.detail
+    challenge = signal_match_search(SignalMatchRequest())
+    with pytest.raises(HTTPException) as index_error:
+        signal_match_search(SignalMatchRequest(**challenge, player_index=100))
+    assert index_error.value.status_code == 400
 
 
-def test_rabin_karp_rejects_invalid_integer_array():
-    # Case 9: Reject integer arrays with values other than 0 and 1 with HTTP 400
-    req = SignalMatchRequest(signal=[1, 0, 2, 1], pattern=[0, 1])
-    with pytest.raises(HTTPException) as exc_info:
-        signal_match_search(req)
-    assert exc_info.value.status_code == 400
-    assert "Only 0 and 1 integer values are allowed" in exc_info.value.detail
-
-    req2 = SignalMatchRequest(signal=[1, 0, 1], pattern=[0, -1])
-    with pytest.raises(HTTPException) as exc_info2:
-        signal_match_search(req2)
-    assert exc_info2.value.status_code == 400
-    assert "Only 0 and 1 integer values are allowed" in exc_info2.value.detail
+def test_rabin_karp_search():
+    assert rabin_karp_search("11010010110", "00101") == 4
+    assert rabin_karp_search("101010", "111") == -1
 
 
 # --- 8. Signal Transmission (Huffman Decoding) ---

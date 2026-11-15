@@ -58,6 +58,7 @@ export interface SolarPanelsResponse {
   optimal_cost: number;
   optimal_edges: string[][];
   player_cost: number;
+  power_consumed: number;
   message: string;
 }
 // 4. Mining Rover (Bellman-Ford)
@@ -130,11 +131,13 @@ export interface FoodProductionResponse {
 }
 
 // 7. Signal Match (Rabin-Karp)
-export interface SignalMatchResponse {
+export interface SignalMatchChallenge {
   signal: string;
   pattern: string;
+}
+
+export interface SignalMatchResponse {
   pattern_found: boolean;
-  match_index: number;
   status: string;
   message: string;
 }
@@ -272,14 +275,15 @@ export const gameApi = {
     }),
 
   // 7. Signal Match (Rabin-Karp)
-  submitSignalMatch: (signal: string, pattern: string) =>
+  newSignalMatch: () =>
+    request<SignalMatchChallenge>("/minigames/signal-match", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  submitSignalMatch: (challenge: SignalMatchChallenge, playerIndex: number) =>
     request<SignalMatchResponse>("/minigames/signal-match", {
       method: "POST",
-      body: JSON.stringify({
-        signal,
-        pattern,
-        session_id: "default",
-      }),
+      body: JSON.stringify({ ...challenge, player_index: playerIndex }),
     }),
 
   // 8. Signal Decoding (Huffman Coding)

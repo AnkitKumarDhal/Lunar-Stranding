@@ -1,7 +1,8 @@
 // frontend/src/minigames/RadioGame.tsx
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   gameApi,
+  type SignalMatchChallenge,
   type SignalMatchResponse,
   type SignalTransmissionChallenge,
   type SignalTransmissionResult,
@@ -10,16 +11,12 @@ import {
 export const RadioGame = () => {
   const [activeTab, setActiveTab] = useState<"match" | "transmission">("match");
 
-  // Rabin-Karp Signal Matching State
-  const [signalInput, setSignalInput] = useState("1101001011010010");
-  const [patternInput, setPatternInput] = useState("010110");
+  // Rabin-Karp sliding-window challenge state
+  const [matchChallenge, setMatchChallenge] = useState<SignalMatchChallenge | null>(null);
+  const [windowStart, setWindowStart] = useState(0);
   const [matchResult, setMatchResult] = useState<SignalMatchResponse | null>(null);
   const [matchLoading, setMatchLoading] = useState(false);
   const [matchError, setMatchError] = useState<string | null>(null);
-
-  // Validation flags for binary inputs (only 0 and 1 allowed)
-  const isSignalInvalid = Boolean(signalInput && /[^01]/.test(signalInput));
-  const isPatternInvalid = Boolean(patternInput && /[^01]/.test(patternInput));
 
   // Huffman decoding state
   const [transChallenge, setTransChallenge] = useState<SignalTransmissionChallenge | null>(null);
@@ -29,15 +26,39 @@ export const RadioGame = () => {
   const [transError, setTransError] = useState<string | null>(null);
   const isAnswerInvalid = /[^A-Z ]/.test(transAnswer);
 
-  // --- Handlers ---
+  // Load a fresh signal and reset the highlighted window.
+  const loadSignalChallenge = useCallback(async () => {
+    setMatchLoading(true);
+    setMatchError(null);
+    setMatchResult(null);
+    try {
+      setMatchChallenge(await gameApi.newSignalMatch());
+      setWindowStart(0);
+    } catch (err: unknown) {
+      setMatchError(err instanceof Error ? err.message : "Could not load a signal");
+    } finally {
+      setMatchLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSignalChallenge();
+  }, [loadSignalChallenge]);
+
+  const moveWindow = (step: number) => {
+    if (!matchChallenge) return;
+    setWindowStart((current) => current + step);
+    setMatchResult(null);
+  };
+
   const handleMatchSubmit = async () => {
+    if (!matchChallenge) return;
     setMatchLoading(true);
     setMatchError(null);
     try {
-      const res = await gameApi.submitSignalMatch(signalInput, patternInput);
-      setMatchResult(res);
+      setMatchResult(await gameApi.submitSignalMatch(matchChallenge, windowStart));
     } catch (err: unknown) {
-      setMatchError(err instanceof Error ? err.message : "Signal matching failed");
+      setMatchError(err instanceof Error ? err.message : "Signal check failed");
     } finally {
       setMatchLoading(false);
     }
@@ -101,71 +122,39 @@ export const RadioGame = () => {
 
       {/* TAB 1: RABIN-KARP SIGNAL MATCHING */}
       {activeTab === "match" && (
-        <div className="flex flex-col space-y-4">
-          <div className="text-xs text-slate-400">
-            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Search a high-speed telemetry carrier bitstream for a mission pattern using Rabin-Karp rolling-hash matching.
-          </div>
+        <div className="flex flex-col space-y-3">
+          <p className="text-xs text-slate-400">
+            <span className="text-cyan-400 font-bold">OBJECTIVE:</span> Find the target bits in the larger signal. Move the highlighted window one bit at a time.
+          </p>
 
-          {/* Input Controls */}
-          <div className="bg-slate-900/90 border border-slate-700/80 rounded-lg p-3 space-y-3">
-            <div>
-              <label className="text-[11px] text-slate-400 block font-mono mb-1">
-                CARRIER SIGNAL STREAM (BINARY):
-              </label>
-              <input
-                type="text"
-                value={signalInput}
-                onChange={(e) => setSignalInput(e.target.value)}
-                placeholder="e.g. 11010010110"
-                className={`w-full bg-slate-950 border ${isSignalInvalid ? "border-rose-500" : "border-slate-700"} rounded px-3 py-2 text-xs font-mono text-cyan-300 focus:outline-none focus:border-cyan-500 tracking-widest`}
-              />
-              {isSignalInvalid && (
-                <span className="text-[10px] text-rose-400 font-mono mt-1 block">
-                  Only 0 and 1 are allowed.
-                </span>
-              )}
-            </div>
+          {matchError && (
+            <p className="text-xs text-rose-400 p-2 border border-rose-500/40 rounded">{matchError}</p>
+          )}
 
-            <div>
-              <label className="text-[11px] text-slate-400 block font-mono mb-1">
-                TARGET TELEMETRY PATTERN (BINARY):
-              </label>
-              <input
-                type="text"
-                value={patternInput}
-                onChange={(e) => setPatternInput(e.target.value)}
-                placeholder="e.g. 010110"
-                className={`w-full bg-slate-950 border ${isPatternInvalid ? "border-rose-500" : "border-slate-700"} rounded px-3 py-2 text-xs font-mono text-amber-300 focus:outline-none focus:border-amber-500 tracking-widest`}
-              />
-              {isPatternInvalid && (
-                <span className="text-[10px] text-rose-400 font-mono mt-1 block">
-                  Only 0 and 1 are allowed.
-                </span>
-              )}
-            </div>
+          {matchChallenge ? (
+            <>
+              <div className="bg-slate-900/90 border border-slate-700 rounded-lg p-3 space-y-2">
+                <span className="text-[10px] text-slate-400 font-mono">TARGET PATTERN</span>
+                <div className="font-mono text-lg tracking-[0.25em] text-amber-300 bg-slate-950 border border-amber-500/40 rounded p-2 text-center">
+                  {matchChallenge.pattern}
+                </div>
+              </div>
 
-            {/* Signal Stream Visualization */}
-            {signalInput && (
-              <div className="pt-2 border-t border-slate-800">
-                <span className="text-[10px] text-slate-500 block mb-1 font-mono uppercase">
-                  Carrier Bitstream Inspection:
-                </span>
-                <div className="flex flex-wrap gap-1 font-mono text-xs select-all bg-slate-950 p-2 rounded border border-slate-800">
-                  {signalInput.split("").map((bit, idx) => {
-                    const isMatchedBit =
-                      matchResult &&
-                      matchResult.pattern_found &&
-                      matchResult.match_index !== -1 &&
-                      idx >= matchResult.match_index &&
-                      idx < matchResult.match_index + patternInput.length;
-
+              <div className="bg-slate-900/90 border border-slate-700 rounded-lg p-3 space-y-3">
+                <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono">
+                  <span>RECEIVED BINARY SIGNAL</span>
+                  <span>{matchChallenge.signal.length} BITS</span>
+                </div>
+                <div className="grid grid-cols-10 sm:grid-cols-16 gap-1">
+                  {matchChallenge.signal.split("").map((bit, index) => {
+                    const highlighted = index >= windowStart && index < windowStart + matchChallenge.pattern.length;
                     return (
                       <span
-                        key={idx}
-                        className={`px-1.5 py-0.5 rounded text-xs transition-colors ${
-                          isMatchedBit
-                            ? "bg-amber-500 text-slate-950 font-black animate-pulse"
-                            : "text-slate-300 hover:bg-slate-800"
+                        key={index}
+                        className={`text-center rounded py-1 font-mono text-xs ${
+                          highlighted
+                            ? "bg-amber-400 text-slate-950 font-bold animate-pulse"
+                            : "bg-slate-950 text-slate-300 border border-slate-800"
                         }`}
                       >
                         {bit}
@@ -174,48 +163,62 @@ export const RadioGame = () => {
                   })}
                 </div>
               </div>
-            )}
-          </div>
 
-          {/* Action Button */}
-          <div className="flex justify-between items-center bg-slate-900/60 p-2.5 rounded border border-slate-800">
-            <span className="text-xs text-slate-400 font-mono">
-              Signal: {signalInput.length} bits | Pattern: {patternInput.length} bits
-            </span>
-            <button
-              onClick={handleMatchSubmit}
-              disabled={matchLoading || !signalInput || !patternInput || isSignalInvalid || isPatternInvalid}
-              className="px-4 py-1.5 bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-            >
-              {matchLoading ? "SCANNING ROLLING HASH..." : "SCAN CARRIER SIGNAL"}
-            </button>
-          </div>
+              <div className="flex items-center gap-2 bg-slate-900/60 border border-slate-800 rounded p-2">
+                <button
+                  onClick={() => moveWindow(-1)}
+                  disabled={matchLoading || windowStart === 0 || matchResult?.pattern_found}
+                  aria-label="Move highlighted window left"
+                  className="px-3 py-2 bg-slate-800 border border-slate-600 rounded text-cyan-300 text-lg disabled:opacity-30"
+                >
+                  ←
+                </button>
+                <div className="flex-1 text-center min-w-0">
+                  <div className="text-[10px] text-slate-500 font-mono">HIGHLIGHTED WINDOW</div>
+                  <div className="font-mono tracking-[0.2em] text-amber-300 text-sm animate-pulse">
+                    {matchChallenge.signal.slice(windowStart, windowStart + matchChallenge.pattern.length)}
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-mono">
+                    POSITION {windowStart + 1} / {matchChallenge.signal.length - matchChallenge.pattern.length + 1}
+                  </div>
+                </div>
+                <button
+                  onClick={() => moveWindow(1)}
+                  disabled={matchLoading || windowStart >= matchChallenge.signal.length - matchChallenge.pattern.length || matchResult?.pattern_found}
+                  aria-label="Move highlighted window right"
+                  className="px-3 py-2 bg-slate-800 border border-slate-600 rounded text-cyan-300 text-lg disabled:opacity-30"
+                >
+                  →
+                </button>
+              </div>
 
-          {matchError && (
-            <div className="text-xs text-rose-400 p-2 border border-rose-500/40 bg-rose-950/40 rounded">
-              {matchError}
-            </div>
+              <div className="flex items-center justify-between gap-2 bg-slate-900/60 border border-slate-800 rounded p-2">
+                <button
+                  onClick={() => void loadSignalChallenge()}
+                  disabled={matchLoading}
+                  className="px-3 py-1.5 bg-slate-800 border border-slate-600 text-slate-200 text-xs font-bold rounded disabled:opacity-40"
+                >
+                  NEW SIGNAL
+                </button>
+                <button
+                  onClick={() => void handleMatchSubmit()}
+                  disabled={matchLoading || matchResult?.pattern_found}
+                  className="px-4 py-1.5 bg-cyan-500/20 border border-cyan-400 text-cyan-300 text-xs font-bold rounded disabled:opacity-40"
+                >
+                  {matchLoading ? "CHECKING..." : "SUBMIT WINDOW"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="text-xs text-cyan-300 font-mono">{matchLoading ? "Receiving signal..." : "No signal loaded."}</p>
           )}
 
           {matchResult && (
-            <div className="text-xs p-3 border border-slate-700 bg-slate-900/95 rounded space-y-2">
-              <div className="flex items-center justify-between">
-                <span
-                  className={`font-bold px-2 py-0.5 rounded text-[10px] tracking-wider ${
-                    matchResult.pattern_found
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : "bg-rose-500/20 text-rose-400 border border-rose-500/40"
-                  }`}
-                >
-                  STATUS: {matchResult.status}
-                </span>
-                {matchResult.pattern_found && (
-                  <span className="text-slate-400 font-mono">
-                    Match Bit Offset: <span className="text-amber-400 font-bold">{matchResult.match_index}</span>
-                  </span>
-                )}
-              </div>
-              <p className="text-slate-200">{matchResult.message}</p>
+            <div className={`text-xs p-3 border rounded ${matchResult.pattern_found ? "border-emerald-500/40 bg-emerald-950/20" : "border-amber-500/40 bg-amber-950/20"}`}>
+              <span className={`font-bold ${matchResult.pattern_found ? "text-emerald-400" : "text-amber-300"}`}>
+                STATUS: {matchResult.status}
+              </span>
+              <p className="text-slate-200 mt-1">{matchResult.message}</p>
             </div>
           )}
         </div>
