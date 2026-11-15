@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import Hud, { DailyRoutinePanel } from "./components/Hud";
+import Hud, { DailyOperationsPanel } from "./components/Hud";
 import { MapBox } from "./components/MapBoxes";
 import { TacticalTabletModal } from "./components/TacticalTabletModal";
 import { StoryDialogue } from "./components/StoryDialogue";
-import type { DailyTasksState, FacilityType } from "./types/game";
+import type { FacilityType } from "./types/game";
 import {
   AUTONOMY_WINDOW_SECONDS,
   STORY_STEPS,
@@ -137,17 +137,9 @@ interface StoryProgress {
   autonomyEndsAt: number | null;
   optionalSolar: boolean;
   lastMissionOutcome: StoryOutcome;
-  tasks: DailyTasksState;
   unlockedFacilities: FacilityType[];
   completedDailyMissions: StoryMissionId[];
 }
-
-const createDailyTasks = (): DailyTasksState => ({
-  eclss: false,
-  suitport: false,
-  exercise: false,
-  solarHeightAdjusted: false,
-});
 
 const createInitialProgress = (): StoryProgress => ({
   day: 1,
@@ -157,7 +149,6 @@ const createInitialProgress = (): StoryProgress => ({
   autonomyEndsAt: null,
   optionalSolar: false,
   lastMissionOutcome: null,
-  tasks: createDailyTasks(),
   unlockedFacilities: [],
   completedDailyMissions: [],
 });
@@ -186,7 +177,8 @@ function loadStoryProgress(): StoryProgress {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return initial;
 
-    const parsed = JSON.parse(saved) as Partial<StoryProgress>;
+    const parsed = JSON.parse(saved) as Partial<StoryProgress> & { tasks?: unknown };
+    delete parsed.tasks;
 
     const validModes: StoryMode[] = [
       "dialogue",
@@ -222,7 +214,6 @@ function loadStoryProgress(): StoryProgress {
       ...initial,
       ...parsed,
       unlockedFacilities: [...new Set([...migratedUnlocks, ...savedUnlocks])],
-      tasks: { ...initial.tasks, ...(parsed.tasks ?? {}) },
       completedDailyMissions: parsed.completedDailyMissions ?? [],
     };
   } catch {
@@ -357,7 +348,6 @@ export default function App() {
         autonomyEndsAt: null,
         optionalSolar: false,
         lastMissionOutcome: null,
-        tasks: createDailyTasks(),
         completedDailyMissions: [],
       };
 
@@ -470,13 +460,6 @@ export default function App() {
     });
   };
 
-  const toggleDailyTask = (key: keyof DailyTasksState) => {
-    setStory((current) => ({
-      ...current,
-      tasks: { ...current.tasks, [key]: true },
-    }));
-  };
-
   const currentStep = getStep(story);
 
   const dialogueStep =
@@ -544,7 +527,7 @@ export default function App() {
   const missionStatus = isSandbox
     ? "FULL AUTONOMY // ALL FACILITIES AVAILABLE"
     : story.mode === "autonomy"
-      ? "DAILY AUTONOMY WINDOW // ROUTINE TASKS"
+      ? "DAILY AUTONOMY WINDOW"
       : story.mode === "finished"
         ? "DAY 7 COMPLETE // RESCUE VERIFICATION PENDING"
         : "GUIDED SURVIVAL // FOLLOW THE AI COMPANION";
@@ -697,12 +680,10 @@ export default function App() {
         onResetGame={resetGameForTesting}
       />
 
-      <DailyRoutinePanel
+      <DailyOperationsPanel
         visible={canOpenTasks && !activeFacility}
         open={tasksOpen}
         onToggleOpen={() => setTasksOpen((open) => !open)}
-        tasks={story.tasks}
-        onToggleTask={toggleDailyTask}
         day={story.day}
         remainingSeconds={remainingSeconds}
         sandbox={isSandbox}

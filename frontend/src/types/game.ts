@@ -21,13 +21,6 @@ export interface HazardPayload {
   }[];
 }
 
-export interface DailyTasksState {
-  eclss: boolean;
-  suitport: boolean;
-  exercise: boolean;
-  solarHeightAdjusted: boolean;
-}
-
 export interface WaterRoverResult {
   is_valid_path: boolean;
   status: string;

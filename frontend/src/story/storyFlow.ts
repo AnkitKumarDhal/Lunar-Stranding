@@ -656,7 +656,7 @@ export const STORY_STEPS: Record<number, StoryStep[]> = {
           "All facilities are available. Manage the base and survive until the rescue team arrives.",
         ),
         ai(
-          "Today's required mini-games are listed in Daily Tasks. Complete all of them before eating and resting to continue.",
+          "Today's required mini-games are listed in Daily Operations. Complete all of them before eating and resting to continue.",
         ),
       ],
     },

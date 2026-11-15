@@ -2,23 +2,16 @@ import {
   Battery,
   CheckCircle2,
   Clock,
-  Dumbbell,
   ListChecks,
-  ShieldCheck,
-  SunMedium,
-  Wind,
-  type LucideIcon,
+  Code2,
+  RotateCcw,
 } from "lucide-react";
-import type { DailyTasksState } from "../types/game";
 import { useState } from "react";
-import { Code2, RotateCcw } from "lucide-react";
 
-interface DailyRoutinePanelProps {
+interface DailyOperationsPanelProps {
   visible: boolean;
   open: boolean;
   onToggleOpen: () => void;
-  tasks: DailyTasksState;
-  onToggleTask: (taskKey: keyof DailyTasksState) => void;
   day: number;
   remainingSeconds: number | null;
   sandbox: boolean;
@@ -27,44 +20,23 @@ interface DailyRoutinePanelProps {
   onEndDay: () => void;
 }
 
-export function DailyRoutinePanel({
+export function DailyOperationsPanel({
   visible,
   open,
   onToggleOpen,
-  tasks,
-  onToggleTask,
   day,
   remainingSeconds,
   sandbox,
   requiredMissions,
   completedMissions,
   onEndDay,
-}: DailyRoutinePanelProps) {
+}: DailyOperationsPanelProps) {
   if (!visible) return null;
 
-  const items: {
-    key: keyof DailyTasksState;
-    label: string;
-    icon: LucideIcon;
-  }[] = [
-    { key: "eclss", label: "CYCLE ECLSS LIFE SUPPORT", icon: Wind },
-    { key: "suitport", label: "PURGE SUITPORT AIRLOCK", icon: ShieldCheck },
-    { key: "exercise", label: "LOW-G RESISTIVE EXERCISE", icon: Dumbbell },
-    {
-      key: "solarHeightAdjusted",
-      label: "CALIBRATE SOLAR MAST HEIGHT",
-      icon: SunMedium,
-    },
-  ];
-
-  const completedCount = items.filter(({ key }) => tasks[key]).length;
   const completedMissionCount = requiredMissions.filter(({ id }) =>
     completedMissions.includes(id),
   ).length;
   const allMissionsComplete = completedMissionCount === requiredMissions.length;
-  const topCount = requiredMissions.length
-    ? `${completedMissionCount}/${requiredMissions.length}`
-    : `${completedCount}/${items.length}`;
 
   return (
     <div className="pointer-events-auto absolute bottom-5 right-6 z-30 font-mono">
@@ -74,8 +46,10 @@ export function DailyRoutinePanel({
         className="flex items-center gap-2 border border-cyan-500/60 bg-slate-950/90 px-4 py-3 text-[10px] font-bold tracking-widest text-cyan-200 shadow-[0_0_18px_rgba(6,182,212,0.18)] backdrop-blur transition-colors hover:bg-cyan-950/80"
       >
         <ListChecks size={15} />
-        {requiredMissions.length ? "DAILY OPERATIONS" : "DAILY TASKS"}
-        <span className="text-amber-300">{topCount}</span>
+        DAILY OPERATIONS
+        {requiredMissions.length > 0 && (
+          <span className="text-amber-300">{completedMissionCount}/{requiredMissions.length}</span>
+        )}
         <span className="text-slate-500">{open ? "−" : "+"}</span>
       </button>
 
@@ -89,14 +63,14 @@ export function DailyRoutinePanel({
               <p className="mt-1 text-[9px] text-slate-500">
                 {requiredMissions.length
                   ? "Complete required mini-games before resting."
-                  : "Optional base maintenance tasks"}
+                  : "Rest when you are ready."}
               </p>
             </div>
-            <span className="text-[10px] text-emerald-400">
-              {requiredMissions.length
-                ? `${completedMissionCount}/${requiredMissions.length}`
-                : `${completedCount}/${items.length}`}
-            </span>
+            {requiredMissions.length > 0 && (
+              <span className="text-[10px] text-emerald-400">
+                {completedMissionCount}/{requiredMissions.length}
+              </span>
+            )}
           </div>
 
           {requiredMissions.length > 0 && (
@@ -126,34 +100,6 @@ export function DailyRoutinePanel({
               </div>
             </div>
           )}
-
-          <h3 className="mb-2 text-[10px] font-bold tracking-widest text-slate-400">
-            OPTIONAL ROUTINES
-          </h3>
-          <div className="space-y-2">
-            {items.map(({ key, label, icon: Icon }) => {
-              const done = tasks[key];
-
-              return (
-                <button
-                  key={key}
-                  type="button"
-                  disabled={done}
-                  onClick={() => onToggleTask(key)}
-                  className={`flex w-full items-center justify-between gap-2 border px-3 py-2.5 text-left text-[9px] tracking-wider transition-colors ${
-                    done
-                      ? "border-cyan-900/50 bg-slate-900/50 text-cyan-700"
-                      : "border-amber-500/40 bg-amber-950/20 text-amber-200 hover:border-amber-400 hover:bg-amber-950/50"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Icon size={13} /> {label}
-                  </span>
-                  {done ? <CheckCircle2 size={14} /> : <span>[ EXEC ]</span>}
-                </button>
-              );
-            })}
-          </div>
 
           <div className="mt-4 border-t border-slate-800 pt-3">
             {!sandbox && remainingSeconds !== null && (
