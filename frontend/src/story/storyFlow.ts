@@ -627,7 +627,18 @@ export const STORY_STEPS: Record<number, StoryStep[]> = {
     // EXERCISE, EAT AND SLEEP
     {
       type: "dialogue",
-      lines: [ai("Complete the exercise task, then eat and rest.")],
+      lines: [
+        ai("Complete the exercise task, then eat and rest."),
+        ai(
+          "We've learned how to manage the essential systems and keep this outpost running.",
+        ),
+        ai(
+          "Rescue may still be days away, but we're ready to take care of the base on our own, Commander.",
+        ),
+        ai(
+          "From tomorrow, I'll assign a few operations each day. Complete them before eating and resting to move on to the next day.",
+        ),
+      ],
     },
 
     { type: "autonomy" },
@@ -643,6 +654,9 @@ export const STORY_STEPS: Record<number, StoryStep[]> = {
         ai("From Day 5 onward, you're in full control of the base, commander."),
         ai(
           "All facilities are available. Manage the base and survive until the rescue team arrives.",
+        ),
+        ai(
+          "Today's required mini-games are listed in Daily Tasks. Complete all of them before eating and resting to continue.",
         ),
       ],
     },

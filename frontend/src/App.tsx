@@ -87,6 +87,24 @@ const FACILITY_UNLOCK_MISSION: Partial<Record<StoryMissionId, FacilityType>> = {
   "sample-retrieval": "mining_rover",
 };
 
+const DAILY_MISSIONS: Record<number, { id: StoryMissionId; label: string }[]> = {
+  5: [
+    { id: "food-production", label: "Greenhouse Scheduling" },
+    { id: "water-rover", label: "Water Retrieval" },
+    { id: "crater-sensors", label: "Crater Sensor Traverse" },
+  ],
+  6: [
+    { id: "rover-workshop", label: "Rover Servicing" },
+    { id: "mining-navigation", label: "Mining Navigation" },
+    { id: "sample-retrieval", label: "Lunar Sample Retrieval" },
+  ],
+  7: [
+    { id: "solar-panels", label: "Solar Panel Connections" },
+    { id: "signal-match", label: "Radio Signal Matching" },
+    { id: "signal-decode", label: "Signal Decoding" },
+  ],
+};
+
 const ALL_FACILITIES: FacilityType[] = [
   "solar",
   "radio",
@@ -121,6 +139,7 @@ interface StoryProgress {
   lastMissionOutcome: StoryOutcome;
   tasks: DailyTasksState;
   unlockedFacilities: FacilityType[];
+  completedDailyMissions: StoryMissionId[];
 }
 
 const createDailyTasks = (): DailyTasksState => ({
@@ -140,6 +159,7 @@ const createInitialProgress = (): StoryProgress => ({
   lastMissionOutcome: null,
   tasks: createDailyTasks(),
   unlockedFacilities: [],
+  completedDailyMissions: [],
 });
 
 function getLegacyFacilityUnlocks(
@@ -203,6 +223,7 @@ function loadStoryProgress(): StoryProgress {
       ...parsed,
       unlockedFacilities: [...new Set([...migratedUnlocks, ...savedUnlocks])],
       tasks: { ...initial.tasks, ...(parsed.tasks ?? {}) },
+      completedDailyMissions: parsed.completedDailyMissions ?? [],
     };
   } catch {
     return initial;
@@ -337,6 +358,7 @@ export default function App() {
         optionalSolar: false,
         lastMissionOutcome: null,
         tasks: createDailyTasks(),
+        completedDailyMissions: [],
       };
 
       return resolveStoryStep(nextProgress, nextDay, 0);
@@ -345,6 +367,7 @@ export default function App() {
 
   useEffect(() => {
     dayAdvanceLock.current = false;
+    if (story.mode === "sandbox") setTasksOpen(true);
   }, [story.day, story.mode]);
 
   const remainingSeconds =
@@ -488,6 +511,35 @@ export default function App() {
   const isFacilityUnlocked = (facility: FacilityType) =>
     isSandbox || story.unlockedFacilities.includes(facility);
   const canOpenTasks = story.mode === "autonomy" || isSandbox;
+
+  // Completing any valid result counts toward that day's required operations.
+  const reportMissionOutcome = (id: StoryMissionId, outcome: StoryOutcome) => {
+    if (isStoryMission) {
+      if (missionId !== id) return;
+      if (
+        story.day === 3 &&
+        outcome === "invalid" &&
+        (id === "food-production" || id === "water-rover")
+      ) return;
+      completeStoryMission(outcome);
+      return;
+    }
+
+    if (
+      !isSandbox ||
+      (outcome !== "optimal" && outcome !== "suboptimal") ||
+      !(DAILY_MISSIONS[story.day] ?? []).some((mission) => mission.id === id)
+    ) return;
+
+    setStory((current) => ({
+      ...current,
+      completedDailyMissions: [
+        ...new Set([...current.completedDailyMissions, id]),
+      ],
+    }));
+  };
+
+  const requiredMissions = isSandbox ? DAILY_MISSIONS[story.day] ?? [] : [];
 
   const missionStatus = isSandbox
     ? "FULL AUTONOMY // ALL FACILITIES AVAILABLE"
@@ -654,6 +706,8 @@ export default function App() {
         day={story.day}
         remainingSeconds={remainingSeconds}
         sandbox={isSandbox}
+        requiredMissions={requiredMissions}
+        completedMissions={story.completedDailyMissions}
         onEndDay={advanceDay}
       />
 
@@ -667,30 +721,27 @@ export default function App() {
           {activeFacility === "water_rover" && (
             <WaterRoverGame
               onPowerConsumed={handlePowerConsumed}
-              onCompleted={(outcome) => {
-                if (!isStoryMission) return;
-                if (story.day === 3 && outcome === "invalid") return;
-
-                completeStoryMission(outcome);
-              }}
+              onCompleted={(outcome) =>
+                reportMissionOutcome("water-rover", outcome)
+              }
             />
           )}
 
           {activeFacility === "solar" && (
             <SolarPanelsGame
               onPowerConsumed={handlePowerConsumed}
-              onCompleted={(outcome) => {
-                if (isStoryMission) completeStoryMission(outcome);
-              }}
+              onCompleted={(outcome) =>
+                reportMissionOutcome("solar-panels", outcome)
+              }
             />
           )}
 
           {activeFacility === "crater_sensors" && (
             <CraterTraverseGame
               onPowerConsumed={handlePowerConsumed}
-              onCompleted={(outcome) => {
-                if (isStoryMission) completeStoryMission(outcome);
-              }}
+              onCompleted={(outcome) =>
+                reportMissionOutcome("crater-sensors", outcome)
+              }
             />
           )}
 
@@ -701,16 +752,12 @@ export default function App() {
                 missionId === "sample-retrieval" ? "cargo" : "navigation"
               }
               lockedTab={isStoryMission}
-              onNavigationComplete={(outcome) => {
-                if (isStoryMission && missionId === "mining-navigation") {
-                  completeStoryMission(outcome);
-                }
-              }}
-              onCargoComplete={(outcome) => {
-                if (isStoryMission && missionId === "sample-retrieval") {
-                  completeStoryMission(outcome);
-                }
-              }}
+              onNavigationComplete={(outcome) =>
+                reportMissionOutcome("mining-navigation", outcome)
+              }
+              onCargoComplete={(outcome) =>
+                reportMissionOutcome("sample-retrieval", outcome)
+              }
             />
           )}
 
@@ -720,39 +767,36 @@ export default function App() {
                 missionId === "signal-decode" ? "transmission" : "match"
               }
               lockedTab={isStoryMission}
-              onMatchComplete={(matched) => {
-                if (isStoryMission && missionId === "signal-match") {
-                  completeStoryMission(matched ? "optimal" : "incorrect");
-                }
-              }}
-              onTransmissionComplete={(decoded) => {
-                if (isStoryMission && missionId === "signal-decode") {
-                  completeStoryMission(decoded ? "optimal" : "incorrect");
-                }
-              }}
+              onMatchComplete={(matched) =>
+                reportMissionOutcome(
+                  "signal-match",
+                  matched ? "optimal" : "incorrect",
+                )
+              }
+              onTransmissionComplete={(decoded) =>
+                reportMissionOutcome(
+                  "signal-decode",
+                  decoded ? "optimal" : "incorrect",
+                )
+              }
             />
           )}
 
           {activeFacility === "greenhouse" && (
             <FoodProductionGame
               onPowerConsumed={handlePowerConsumed}
-              onCompleted={(outcome) => {
-                if (!isStoryMission) return;
-
-                // Day 3 does not have a separate food-production outcome dialogue.
-                if (story.day === 3 && outcome === "invalid") return;
-
-                completeStoryMission(outcome);
-              }}
+              onCompleted={(outcome) =>
+                reportMissionOutcome("food-production", outcome)
+              }
             />
           )}
 
           {activeFacility === "garage" && (
             <RoverWorkshopGame
               onPowerConsumed={handlePowerConsumed}
-              onCompleted={(outcome) => {
-                if (isStoryMission) completeStoryMission(outcome);
-              }}
+              onCompleted={(outcome) =>
+                reportMissionOutcome("rover-workshop", outcome)
+              }
             />
           )}
         </TacticalTabletModal>

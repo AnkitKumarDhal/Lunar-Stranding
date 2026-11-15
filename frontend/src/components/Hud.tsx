@@ -22,6 +22,8 @@ interface DailyRoutinePanelProps {
   day: number;
   remainingSeconds: number | null;
   sandbox: boolean;
+  requiredMissions: { id: string; label: string }[];
+  completedMissions: string[];
   onEndDay: () => void;
 }
 
@@ -34,6 +36,8 @@ export function DailyRoutinePanel({
   day,
   remainingSeconds,
   sandbox,
+  requiredMissions,
+  completedMissions,
   onEndDay,
 }: DailyRoutinePanelProps) {
   if (!visible) return null;
@@ -54,6 +58,13 @@ export function DailyRoutinePanel({
   ];
 
   const completedCount = items.filter(({ key }) => tasks[key]).length;
+  const completedMissionCount = requiredMissions.filter(({ id }) =>
+    completedMissions.includes(id),
+  ).length;
+  const allMissionsComplete = completedMissionCount === requiredMissions.length;
+  const topCount = requiredMissions.length
+    ? `${completedMissionCount}/${requiredMissions.length}`
+    : `${completedCount}/${items.length}`;
 
   return (
     <div className="pointer-events-auto absolute bottom-5 right-6 z-30 font-mono">
@@ -63,29 +74,62 @@ export function DailyRoutinePanel({
         className="flex items-center gap-2 border border-cyan-500/60 bg-slate-950/90 px-4 py-3 text-[10px] font-bold tracking-widest text-cyan-200 shadow-[0_0_18px_rgba(6,182,212,0.18)] backdrop-blur transition-colors hover:bg-cyan-950/80"
       >
         <ListChecks size={15} />
-        DAILY TASKS
-        <span className="text-amber-300">
-          {completedCount}/{items.length}
-        </span>
+        {requiredMissions.length ? "DAILY OPERATIONS" : "DAILY TASKS"}
+        <span className="text-amber-300">{topCount}</span>
         <span className="text-slate-500">{open ? "−" : "+"}</span>
       </button>
 
       {open && (
-        <div className="absolute bottom-14 right-0 w-80 border border-cyan-800/70 bg-slate-950/95 p-4 shadow-[0_0_30px_rgba(0,0,0,0.75)] backdrop-blur-xl">
+        <div className="absolute bottom-14 right-0 max-h-[75vh] w-80 overflow-y-auto border border-cyan-800/70 bg-slate-950/95 p-4 shadow-[0_0_30px_rgba(0,0,0,0.75)] backdrop-blur-xl">
           <div className="mb-3 flex items-center justify-between border-b border-cyan-900 pb-2">
             <div>
               <h2 className="text-xs font-bold tracking-widest text-cyan-300">
-                DAY {String(day).padStart(2, "0")} // CREW ROUTINE
+                DAY {String(day).padStart(2, "0")} // DAILY OPERATIONS
               </h2>
               <p className="mt-1 text-[9px] text-slate-500">
-                Optional base maintenance tasks
+                {requiredMissions.length
+                  ? "Complete required mini-games before resting."
+                  : "Optional base maintenance tasks"}
               </p>
             </div>
             <span className="text-[10px] text-emerald-400">
-              {completedCount}/{items.length}
+              {requiredMissions.length
+                ? `${completedMissionCount}/${requiredMissions.length}`
+                : `${completedCount}/${items.length}`}
             </span>
           </div>
 
+          {requiredMissions.length > 0 && (
+            <div className="mb-4 border-b border-cyan-900 pb-3">
+              <h3 className="mb-2 text-[10px] font-bold tracking-widest text-amber-300">
+                REQUIRED MINI-GAMES
+              </h3>
+              <div className="space-y-2">
+                {requiredMissions.map(({ id, label }) => {
+                  const done = completedMissions.includes(id);
+                  return (
+                    <div
+                      key={id}
+                      className="flex items-center justify-between gap-2 text-[10px]"
+                    >
+                      <span className={done ? "text-cyan-600" : "text-cyan-100"}>
+                        {label}
+                      </span>
+                      {done ? (
+                        <CheckCircle2 size={13} className="shrink-0 text-emerald-400" />
+                      ) : (
+                        <span className="shrink-0 text-amber-300">PENDING</span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          <h3 className="mb-2 text-[10px] font-bold tracking-widest text-slate-400">
+            OPTIONAL ROUTINES
+          </h3>
           <div className="space-y-2">
             {items.map(({ key, label, icon: Icon }) => {
               const done = tasks[key];
@@ -126,12 +170,22 @@ export function DailyRoutinePanel({
               </p>
             )}
 
+            {!allMissionsComplete && (
+              <p className="mb-2 text-center text-[9px] text-amber-300">
+                Complete {requiredMissions.length - completedMissionCount} more mini-game(s) to rest.
+              </p>
+            )}
             <button
               type="button"
+              disabled={!allMissionsComplete}
               onClick={onEndDay}
-              className="w-full border border-cyan-500/60 bg-cyan-500/15 px-3 py-2.5 text-[10px] font-bold tracking-widest text-cyan-200 transition-colors hover:bg-cyan-500/25"
+              className={`w-full border px-3 py-2.5 text-[10px] font-bold tracking-widest transition-colors ${
+                allMissionsComplete
+                  ? "border-cyan-500/60 bg-cyan-500/15 text-cyan-200 hover:bg-cyan-500/25"
+                  : "cursor-not-allowed border-slate-700 bg-slate-900 text-slate-600"
+              }`}
             >
-              {sandbox ? "END DAY" : "SLEEP / END DAY"}
+              {sandbox ? "EAT / REST / END DAY" : "SLEEP / END DAY"}
             </button>
           </div>
         </div>
