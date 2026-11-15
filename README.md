@@ -2,7 +2,7 @@
 
 **An educational algorithmic survival game set at an Artemis-inspired lunar outpost**
 
-🌐 **Play the deployed game:** [https://lunar-stranding-rho.vercel.app/](https://lunar-stranding-rho.vercel.app/)
+**Play the deployed game:** [https://lunar-stranding-rho.vercel.app/](https://lunar-stranding-rho.vercel.app/)
 
 **Lunar Stranding** is an interactive story and strategy game set near **Shackleton Crater at the Moon's South Pole**. After an emergency landing, the player becomes the commander of a lunar outpost. Guided by an onboard AI companion, they must keep the base running and complete a seven-day survival mission while waiting for rescue.
 
@@ -10,7 +10,7 @@ Players operate the outpost through short story sequences, a top-down base map a
 
 ---
 
-## 🌟 Key Features
+## Key Features
 
 - **Lunar outpost setting:** Explore facilities inspired by lunar surface operations, including the suitport, ECLSS, solar array, greenhouse, water rover, mining rover and rover workshop.
 - **Algorithm-based mini-games:** Solve graph, string, greedy and dynamic-programming challenges through interactive gameplay.
@@ -23,7 +23,7 @@ Players operate the outpost through short story sequences, a top-down base map a
 
 ---
 
-## 🧠 Core Algorithms & Mission Mapping
+## Core Algorithms & Mission Mapping
 
 Each mini-game in `frontend/src/minigames/` communicates with a FastAPI router in `backend/routers/`. The API generates challenges and evaluates the player's solution against the relevant algorithm.
 
@@ -45,7 +45,7 @@ Power is a shared HUD resource, but the cost calculation is specific to each tas
 
 ---
 
-## 📅 Seven-Day Story Progression
+## Seven-Day Story Progression
 
 The first four days introduce the outpost and its systems through guided missions. After the player learns the core operations, Days 5–7 use a daily checklist of required mini-games.
 
@@ -63,7 +63,7 @@ For Days 5–7, the **Daily Operations** panel lists the three required mini-gam
 
 ---
 
-## ⚡ Power, Progress and Game States
+## Power, Progress and Game States
 
 - The Power HUD starts at **100** and is clamped between 0 and 100.
 - Mini-games that use Power report their cost or signed Power change to the main application, which updates the HUD.
@@ -74,7 +74,7 @@ For Days 5–7, the **Daily Operations** panel lists the three required mini-gam
 
 ---
 
-## 🧰 Technology Stack
+## Technology Stack
 
 - **Frontend:** React, TypeScript, Vite and Tailwind CSS.
 - **Backend:** Python, FastAPI and Pydantic.
@@ -83,7 +83,7 @@ For Days 5–7, the **Daily Operations** panel lists the three required mini-gam
 
 ---
 
-## 📂 Project Architecture
+## Project Architecture
 
 ```text
 Lunar-Stranding/
@@ -137,7 +137,7 @@ Lunar-Stranding/
 
 ---
 
-## 🚀 Play the Game
+## Play the Game
 
 The game is deployed and can be played directly in your browser:
 
@@ -159,6 +159,6 @@ The project includes backend tests in `backend/tests/test_all_minigames.py` and 
 
 ---
 
-## 📌 Project Scope
+## Project Scope
 
 Lunar Stranding is an educational game prototype. Its mini-games demonstrate algorithmic ideas through simplified lunar-outpost scenarios; they are not a full engineering simulation or an official NASA product. The campaign currently focuses on Power management, algorithm challenges, daily objectives and story progression.
