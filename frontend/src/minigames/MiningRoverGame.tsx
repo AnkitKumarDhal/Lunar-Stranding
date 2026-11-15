@@ -2,22 +2,12 @@
 import { useCallback, useEffect, useState } from "react";
 import {
   gameApi,
+  type MiningEdge,
   type MiningRoverResponse,
   type SampleRetrievalResponse,
   type SampleItem,
 } from "@/services/api";
 
-// --- Bellman-Ford Directed Graph Definition ---
-const MINING_EDGES: [string, string, number][] = [
-  ["Base", "Crater_Site", 6],
-  ["Base", "Anomaly_Zone", 7],
-  ["Crater_Site", "Deep_Shaft", 8],
-  ["Crater_Site", "Anomaly_Zone", -4], // Gravitational assist (negative weight)
-  ["Anomaly_Zone", "Lava_Tube", 9],
-  ["Anomaly_Zone", "Deep_Shaft", -2], // Regenerative braking downhill
-  ["Deep_Shaft", "Excavation", 5],
-  ["Lava_Tube", "Excavation", 2],
-];
 
 const NODE_COORDS: Record<string, { x: number; y: number; label: string }> = {
   Base: { x: 60, y: 150, label: "BASE" },
@@ -29,16 +19,19 @@ const NODE_COORDS: Record<string, { x: number; y: number; label: string }> = {
 };
 
 interface MiningRoverGameProps {
-  onPowerGained: (amount: number) => void;
+  onPowerChange: (amount: number) => void;
 }
 
-export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
+export const MiningRoverGame = ({ onPowerChange }: MiningRoverGameProps) => {
   const [activeTab, setActiveTab] = useState<"navigation" | "cargo">("navigation");
 
-  // Navigation State
+  // Navigation state
+  const [miningEdges, setMiningEdges] = useState<MiningEdge[]>([]);
+  const [startNode, setStartNode] = useState("Base");
+  const [targetNode, setTargetNode] = useState("Excavation");
   const [navPath, setNavPath] = useState<string[]>(["Base"]);
   const [navResult, setNavResult] = useState<MiningRoverResponse | null>(null);
-  const [navLoading, setNavLoading] = useState(false);
+  const [navLoading, setNavLoading] = useState(true);
   const [navError, setNavError] = useState<string | null>(null);
 
   // Cargo knapsack state
@@ -48,6 +41,27 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
   const [cargoResult, setCargoResult] = useState<SampleRetrievalResponse | null>(null);
   const [cargoLoading, setCargoLoading] = useState(true);
   const [cargoError, setCargoError] = useState<string | null>(null);
+
+  const loadNewMiningGame = useCallback(async () => {
+    setNavLoading(true);
+    setNavError(null);
+    setNavResult(null);
+    try {
+      const game = await gameApi.newMiningRoverGame();
+      setMiningEdges(game.edges);
+      setStartNode(game.start_node);
+      setTargetNode(game.target_node);
+      setNavPath([game.start_node]);
+    } catch (err: unknown) {
+      setNavError(err instanceof Error ? err.message : "Failed to generate terrain");
+    } finally {
+      setNavLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadNewMiningGame();
+  }, [loadNewMiningGame]);
 
   const loadNewSamples = useCallback(async () => {
     setCargoLoading(true);
@@ -76,7 +90,7 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
 
   const handleNavNodeClick = (node: string) => {
     // Only allow directed forward edge from current head
-    const edgeExists = MINING_EDGES.some(
+    const edgeExists = miningEdges.some(
       ([u, v]) => u === currentNavHead && v === node,
     );
     if (edgeExists) {
@@ -85,7 +99,7 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
   };
 
   const handleNavReset = () => {
-    setNavPath(["Base"]);
+    setNavPath([startNode]);
     setNavResult(null);
     setNavError(null);
   };
@@ -95,12 +109,13 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
     setNavError(null);
     try {
       const res = await gameApi.submitMiningRover(
-        MINING_EDGES,
+        miningEdges,
         navPath,
-        "Base",
-        "Excavation",
+        startNode,
+        targetNode,
       );
       setNavResult(res);
+      onPowerChange(res.power_change);
     } catch (err: unknown) {
       setNavError(err instanceof Error ? err.message : "Navigation calculation failed");
     } finally {
@@ -130,7 +145,7 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
     try {
       const response = await gameApi.submitSampleRetrieval(samples, selectedSampleIds, roverCapacity);
       setCargoResult(response);
-      onPowerGained(response.power_gained);
+      onPowerChange(response.power_gained);
     } catch (err: unknown) {
       setCargoError(err instanceof Error ? err.message : "Loadout validation failed");
     } finally {
@@ -171,13 +186,12 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
       {/* TAB 1: BELLMAN-FORD NAVIGATION */}
       {activeTab === "navigation" && (
         <div className="flex flex-col space-y-4">
-          <div className="flex items-center justify-between text-xs text-slate-400">
+          <div className="flex items-center justify-between gap-3 text-xs text-slate-400">
             <div>
-              <span className="text-amber-400 font-bold">OBJECTIVE:</span> Navigate directed terrain to{" "}
-              <span className="text-slate-200 font-bold">Excavation</span> utilizing gravitational assists (negative weights).
+              <span className="text-amber-400 font-bold">OBJECTIVE:</span> Find the lowest-energy route to {targetNode}. Negative edges regenerate power.
             </div>
-            <div className="text-[11px] text-emerald-400 font-mono">
-              Green Edges = Energy Regeneration
+            <div className="shrink-0 text-[11px] text-emerald-400 font-mono">
+              Green = regeneration
             </div>
           </div>
 
@@ -221,7 +235,7 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
               </defs>
 
               {/* Render Directed Edges */}
-              {MINING_EDGES.map(([u, v, w], idx) => {
+              {miningEdges.map(([u, v, w], idx) => {
                 const p1 = NODE_COORDS[u];
                 const p2 = NODE_COORDS[v];
                 const isTraversed = navPath.some(
@@ -284,7 +298,7 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
               {Object.entries(NODE_COORDS).map(([key, node]) => {
                 const isHead = currentNavHead === key;
                 const isVisited = navPath.includes(key);
-                const isNeighbor = MINING_EDGES.some(
+                const isNeighbor = miningEdges.some(
                   ([u, v]) => u === currentNavHead && v === key,
                 );
 
@@ -339,17 +353,24 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
             <div className="flex items-center gap-2">
               <button
                 onClick={handleNavReset}
-                disabled={navLoading}
+                disabled={navLoading || navResult !== null}
                 className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold rounded border border-slate-600 transition-colors"
               >
                 RESET
               </button>
               <button
                 onClick={handleNavSubmit}
-                disabled={navLoading || navPath[navPath.length - 1] !== "Excavation"}
+                disabled={navLoading || navResult !== null || navPath[navPath.length - 1] !== targetNode}
                 className="px-4 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400 text-amber-300 text-xs font-bold rounded tracking-wider disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
               >
                 {navLoading ? "COMPUTING..." : "SUBMIT MINING ROUTE"}
+              </button>
+              <button
+                onClick={() => void loadNewMiningGame()}
+                disabled={navLoading}
+                className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-cyan-300 text-xs font-semibold rounded border border-cyan-500/50 disabled:opacity-40"
+              >
+                NEW TERRAIN
               </button>
             </div>
           </div>
@@ -363,38 +384,30 @@ export const MiningRoverGame = ({ onPowerGained }: MiningRoverGameProps) => {
           {navResult && (
             <div className="text-xs p-3 border border-slate-700 bg-slate-900/95 rounded space-y-2">
               <div className="flex items-center justify-between">
-                <span
-                  className={`font-bold px-2 py-0.5 rounded text-[10px] tracking-wider ${
-                    navResult.status === "OPTIMAL"
-                      ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40"
-                      : "bg-amber-500/20 text-amber-400 border border-amber-500/40"
-                  }`}
-                >
+                <span className={`font-bold px-2 py-0.5 rounded text-[10px] tracking-wider ${navResult.status === "OPTIMAL" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/40" : "bg-amber-500/20 text-amber-400 border border-amber-500/40"}`}>
                   STATUS: {navResult.status}
                 </span>
-                <span className="text-slate-400 font-mono">
-                  Efficiency: <span className="text-cyan-400 font-bold">{navResult.efficiency_percentage}%</span>
+                <span className="font-mono text-cyan-300">
+                  {navResult.power_change > 0
+                    ? `Power +${navResult.power_change} regenerated`
+                    : navResult.power_change < 0
+                    ? `Power ${navResult.power_change} consumed`
+                    : "No power change"}
                 </span>
               </div>
               <p className="text-slate-200">{navResult.message}</p>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
+              <div className="grid grid-cols-2 gap-2 pt-2 border-t border-slate-800 text-[11px] font-mono">
                 <div>
-                  <span className="text-slate-500 block">Your Energy Cost:</span>
+                  <span className="text-slate-500 block">Route Energy:</span>
                   <span className="text-amber-400 font-bold">{navResult.player_cost} kWh</span>
                 </div>
                 <div>
-                  <span className="text-slate-500 block">Optimal Energy Cost:</span>
-                  <span className="text-emerald-400 font-bold">
-                    {navResult.optimal_cost !== null ? `${navResult.optimal_cost} kWh` : "N/A"}
-                  </span>
+                  <span className="text-slate-500 block">Optimal Energy:</span>
+                  <span className="text-emerald-400 font-bold">{navResult.optimal_cost !== null ? `${navResult.optimal_cost} kWh` : "N/A"}</span>
                 </div>
-                <div>
+                <div className="col-span-2">
                   <span className="text-slate-500 block">Optimal Path:</span>
-                  <span className="text-slate-300 font-bold">
-                    {navResult.optimal_path && navResult.optimal_path.length > 0
-                      ? navResult.optimal_path.join(" → ")
-                      : "N/A"}
-                  </span>
+                  <span className="text-slate-300 font-bold">{navResult.optimal_path.length ? navResult.optimal_path.join(" → ") : "N/A"}</span>
                 </div>
               </div>
             </div>

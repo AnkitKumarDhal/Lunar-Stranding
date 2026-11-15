@@ -54,39 +54,27 @@ export interface SolarPanelsGameData {
 }
 
 export interface SolarPanelsResponse {
-  is_valid_mst: boolean;
   status: string;
-  optimal: {
-    mst_edges: (string | number)[][];
-    total_cost: number;
-    predecessor_map: Record<string, string | null>;
-  };
   optimal_cost: number;
-  optimal_edges: (string | number)[][];
+  optimal_edges: string[][];
   player_cost: number;
-  player_edges: string[][];
-  efficiency: number;
-  efficiency_percentage: number;
   message: string;
 }
-
 // 4. Mining Rover (Bellman-Ford)
+export type MiningEdge = [string, string, number];
+
+export interface MiningRoverGameData {
+  edges: MiningEdge[];
+  start_node: string;
+  target_node: string;
+}
+
 export interface MiningRoverResponse {
-  is_valid_path: boolean;
   status: string;
-  has_negative_cycle: boolean;
-  optimal: {
-    path: string[];
-    cost: number | null;
-    distances: Record<string, number | null>;
-    has_negative_cycle: boolean;
-  };
   optimal_path: string[];
   optimal_cost: number | null;
-  player_path: string[];
   player_cost: number;
-  efficiency: number;
-  efficiency_percentage: number;
+  power_change: number;
   message: string;
 }
 
@@ -232,21 +220,15 @@ export const gameApi = {
     }),
 
   // 4. Mining Rover (Bellman-Ford)
-  submitMiningRover: (
-    edges: (string | number)[][],
-    path: string[],
-    startNode: string = "Base",
-    targetNode: string = "Excavation",
-  ) =>
+  newMiningRoverGame: () =>
+    request<MiningRoverGameData>("/minigames/mining-rover", {
+      method: "POST",
+      body: JSON.stringify({}),
+    }),
+  submitMiningRover: (edges: MiningEdge[], path: string[], startNode: string, targetNode: string) =>
     request<MiningRoverResponse>("/minigames/mining-rover", {
       method: "POST",
-      body: JSON.stringify({
-        edges,
-        start_node: startNode,
-        target_node: targetNode,
-        player_path: path,
-        session_id: "default",
-      }),
+      body: JSON.stringify({ edges, start_node: startNode, target_node: targetNode, player_path: path }),
     }),
 
   // 5. Sample Retrieval (0/1 Knapsack)

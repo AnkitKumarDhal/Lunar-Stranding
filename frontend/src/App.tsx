@@ -189,8 +189,8 @@ export default function App() {
 
           {activeFacility === "mining_rover" && (
             <MiningRoverGame
-              onPowerGained={(amount) =>
-                setPower((current) => Math.min(100, Number((current + amount).toFixed(2))))
+              onPowerChange={(amount) =>
+                setPower((current) => Math.max(0, Math.min(100, Number((current + amount).toFixed(2)))))
               }
             />
           )}
